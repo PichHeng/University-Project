@@ -1,0 +1,9 @@
+
+{
+    "compilerOptions": {
+        "bashUrl": ".",
+        "paths": {
+            "@/*": ["./src/*"]
+        }
+    }
+}

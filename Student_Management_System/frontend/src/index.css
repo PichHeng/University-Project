@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+:root {
+  --sms-ink: #1b2a4a;
+  --sms-ink-dark: #0f1a30;
+  --sms-ink-soft: #243b63;
+
+  --sms-gold: #c9a227;
+  --sms-gold-dark: #8a6b08;
+  --sms-gold-soft: #ebdfb0;
+
+  --sms-paper: #faf9f5;
+  --sms-paper-soft: #f1eee5;
+
+  --sms-line: #dedacc;
+  --sms-text: #22252b;
+  --sms-muted: #5b6472;
+
+  --sms-success: #3f7859;
+  --sms-success-bg: #e4efe7;
+
+  --sms-danger: #b23a48;
+  --sms-danger-bg: #f6e6e6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--sms-paper);
+  color: var(--sms-text);
+  font-family: "Geist Variable", Arial, Helvetica, sans-serif;
+}
+
+button, input { font: inherit; }
+
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--sms-gold) 65%, transparent); outline-offset: 2px; }
+
+button {
+  cursor: pointer;
+}
