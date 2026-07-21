@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { exportRecordToCsv, exportVisibleTableToCsv } from "@/lib/exportCsv";
 import {
     Download,
     FileSpreadsheet,
@@ -116,16 +117,25 @@ function AdminReports() {
         setReports((prev) => prev.filter((report) => report.id !== reportId));
     }
 
+    function handleDownload(report) {
+        if (report.format === "PDF") {
+            window.print();
+            return;
+        }
+
+        exportRecordToCsv(`${report.reportCode}.csv`, report);
+    }
+
     function getFormatBadgeClass(format) {
         return format === "PDF"
-            ? "border-red-200 bg-red-50 text-red-700"
-            : "border-green-200 bg-green-50 text-green-700";
+            ? "sms-badge-inactive"
+            : "sms-badge-active";
     }
 
     function getStatusBadgeClass(status) {
         return status === "Ready"
-            ? "border-green-200 bg-green-50 text-green-700"
-            : "border-amber-200 bg-amber-50 text-amber-700";
+            ? "sms-badge-active"
+            : "sms-badge-warning";
     }
 
     return (
@@ -148,18 +158,18 @@ function AdminReports() {
                 <div className="flex flex-wrap gap-2">
                     <Button
                         onClick={openGenerateDialog}
-                        className="bg-[var(--sms-ink)] hover:bg-[var(--sms-ink-soft)]"
+                        className="sms-btn-primary"
                     >
                         <Plus className="mr-2 h-4 w-4" />
                         Generate Report
                     </Button>
 
-                    <Button variant="outline">
+                    <Button type="button" variant="outline" onClick={() => window.print()}>
                         <FileText className="mr-2 h-4 w-4" />
                         PDF
                     </Button>
 
-                    <Button variant="outline">
+                    <Button type="button" variant="outline" onClick={() => exportVisibleTableToCsv("reports.csv")}>
                         <FileSpreadsheet className="mr-2 h-4 w-4" />
                         Excel
                     </Button>
@@ -170,7 +180,7 @@ function AdminReports() {
                 {reportStats.map((item) => (
                     <div
                         key={item.label}
-                        className="rounded-md border border-[var(--sms-line)] bg-white p-5 shadow-sm"
+                        className="sms-card p-5"
                     >
                         <p className="text-3xl font-bold text-[var(--sms-ink)]">
                             {item.value}
@@ -183,8 +193,8 @@ function AdminReports() {
                 ))}
             </section>
 
-            <section className="rounded-md border border-[var(--sms-line)] bg-white">
-                <div className="flex flex-col justify-between gap-4 border-b border-[var(--sms-line)] bg-[var(--sms-paper-soft)] px-5 py-4 md:flex-row md:items-center">
+            <section className="sms-card overflow-hidden">
+                <div className="sms-section-header flex flex-col justify-between gap-4 px-5 py-4 md:flex-row md:items-center">
                     <div>
                         <h2 className="font-semibold text-[var(--sms-ink)]">
                             Generated Reports
@@ -262,7 +272,7 @@ function AdminReports() {
 
                                         <TableCell>
                                             <div className="flex justify-end gap-2">
-                                                <Button variant="outline" size="icon">
+                                        <Button type="button" variant="outline" size="icon" onClick={() => handleDownload(report)} aria-label={`Download ${report.reportTitle}`}>
                                                     <Download className="h-4 w-4" />
                                                 </Button>
 
@@ -271,7 +281,7 @@ function AdminReports() {
                                                     size="icon"
                                                     onClick={() => handleDelete(report.id)}
                                                 >
-                                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                                    <Trash2 className="h-4 w-4 text-[var(--sms-danger)]" />
                                                 </Button>
                                             </div>
                                         </TableCell>
@@ -367,7 +377,7 @@ function AdminReports() {
 
                             <Button
                                 type="submit"
-                                className="bg-[var(--sms-ink)] hover:bg-[var(--sms-ink-soft)]"
+                                className="sms-btn-primary"
                             >
                                 Generate
                             </Button>

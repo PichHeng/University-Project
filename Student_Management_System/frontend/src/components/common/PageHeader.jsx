@@ -41,7 +41,7 @@ function PageHeader({ eyebrow, title, description }) {
                     variant="outline"
                     onClick={handleLogout}
                     aria-label="Log out"
-                    className="border-[var(--sms-line)] bg-white text-[var(--sms-ink)] hover:bg-[var(--sms-paper-soft)]"
+                    className="sms-btn-outline"
                 >
                     <LogOut aria-hidden="true" />
                     Log out

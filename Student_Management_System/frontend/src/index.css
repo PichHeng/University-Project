@@ -1,26 +1,82 @@
 @import "tailwindcss";
+@import "@fontsource-variable/geist";
 
 :root {
-  --sms-ink: #1b2a4a;
-  --sms-ink-dark: #0f1a30;
-  --sms-ink-soft: #243b63;
+  /* Main academic colors */
+  --sms-ink: #10233f;
+  --sms-ink-dark: #0b1629;
+  --sms-ink-soft: #1b3558;
 
   --sms-gold: #c9a227;
-  --sms-gold-dark: #8a6b08;
-  --sms-gold-soft: #ebdfb0;
+  --sms-gold-dark: #a8841d;
+  --sms-gold-soft: #f7efd0;
 
-  --sms-paper: #faf9f5;
-  --sms-paper-soft: #f1eee5;
+  /* Backgrounds */
+  --sms-page: #f4f1e8;
+  --sms-page-soft: #faf8f1;
 
-  --sms-line: #dedacc;
-  --sms-text: #22252b;
-  --sms-muted: #5b6472;
+  /* Backwards-compatible aliases used by the older screens. */
+  --sms-paper: var(--sms-page);
+  --sms-paper-soft: var(--sms-page-soft);
 
-  --sms-success: #3f7859;
-  --sms-success-bg: #e4efe7;
+  /* Cards and panels */
+  --sms-card: #fffdf7;
+  --sms-card-soft: #f8f3e5;
 
-  --sms-danger: #b23a48;
-  --sms-danger-bg: #f6e6e6;
+  /* Lines and text */
+  --sms-line: #ded6c4;
+  --sms-line-strong: #c9bea7;
+
+  --sms-text: #172033;
+  --sms-muted: #6f7480;
+
+  /* Status colors */
+  --sms-success: #15803d;
+  --sms-success-bg: #ecfdf3;
+  --sms-success-border: #bbf7d0;
+
+  --sms-danger: #b91c1c;
+  --sms-danger-bg: #fef2f2;
+  --sms-danger-border: #fecaca;
+
+  --sms-warning: #b7791f;
+  --sms-warning-bg: #fffbeb;
+  --sms-warning-border: #fde68a;
+
+  --sms-info: #1d4ed8;
+  --sms-info-bg: #eff6ff;
+  --sms-info-border: #bfdbfe;
+
+  /* shadcn/ui compatibility */
+  --background: var(--sms-page);
+  --foreground: var(--sms-text);
+
+  --card: var(--sms-card);
+  --card-foreground: var(--sms-text);
+
+  --popover: var(--sms-card);
+  --popover-foreground: var(--sms-text);
+
+  --primary: var(--sms-ink);
+  --primary-foreground: #ffffff;
+
+  --secondary: var(--sms-card-soft);
+  --secondary-foreground: var(--sms-ink);
+
+  --muted: var(--sms-card-soft);
+  --muted-foreground: var(--sms-muted);
+
+  --accent: var(--sms-gold-soft);
+  --accent-foreground: var(--sms-ink);
+
+  --destructive: var(--sms-danger);
+  --destructive-foreground: #ffffff;
+
+  --border: var(--sms-line);
+  --input: var(--sms-line);
+  --ring: var(--sms-gold);
+
+  --radius: 0.75rem;
 }
 
 * {
@@ -31,15 +87,165 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: var(--sms-paper);
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(201, 162, 39, 0.12),
+      transparent 32rem
+    ),
+    var(--sms-page);
   color: var(--sms-text);
   font-family: "Geist Variable", Arial, Helvetica, sans-serif;
+  line-height: 1.5;
 }
 
-button, input { font: inherit; }
+#root {
+  min-height: 100vh;
+}
 
-:focus-visible { outline: 3px solid color-mix(in srgb, var(--sms-gold) 65%, transparent); outline-offset: 2px; }
+::selection {
+  background: var(--sms-gold-soft);
+  color: var(--sms-ink);
+}
 
-button {
-  cursor: pointer;
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--sms-gold) 65%, transparent);
+  outline-offset: 2px;
+}
+
+/* ===============================
+   Reusable SMS theme classes
+================================ */
+
+.sms-card {
+  background: var(--sms-card);
+  border: 1px solid var(--sms-line);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 28px rgba(16, 35, 63, 0.06);
+}
+
+.sms-card-soft {
+  background: var(--sms-card-soft);
+  border: 1px solid var(--sms-line);
+  border-radius: var(--radius);
+}
+
+.sms-section-header {
+  background: linear-gradient(
+    180deg,
+    var(--sms-card-soft),
+    var(--sms-page-soft)
+  );
+  border-bottom: 1px solid var(--sms-line);
+}
+
+.sms-panel-title {
+  color: var(--sms-ink);
+  font-weight: 650;
+}
+
+.sms-text-muted {
+  color: var(--sms-muted);
+}
+
+.sms-btn-outline {
+  border-color: var(--sms-line-strong);
+  background: var(--sms-card);
+  color: var(--sms-ink);
+}
+
+.sms-btn-outline:hover {
+  border-color: var(--sms-gold-dark);
+  background: var(--sms-gold-soft);
+  color: var(--sms-ink-dark);
+}
+
+.sms-btn-danger {
+  border-color: var(--sms-danger-border);
+  background: var(--sms-danger-bg);
+  color: var(--sms-danger);
+}
+
+.sms-btn-danger:hover {
+  border-color: var(--sms-danger);
+  background: var(--sms-danger);
+  color: #ffffff;
+}
+
+.sms-btn-dark {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: transparent;
+  color: #e5e7eb;
+}
+
+.sms-btn-dark:hover {
+  border-color: var(--sms-gold);
+  background: var(--sms-ink-soft);
+  color: #ffffff;
+}
+
+.sms-btn-primary {
+  background: var(--sms-ink);
+  color: #ffffff;
+}
+
+.sms-btn-primary:hover {
+  background: var(--sms-ink-soft);
+  color: #ffffff;
+}
+
+.sms-btn-gold {
+  background: var(--sms-gold);
+  color: var(--sms-ink-dark);
+}
+
+.sms-btn-gold:hover {
+  background: var(--sms-gold-dark);
+  color: #ffffff;
+}
+
+.sms-badge-active {
+  border-color: var(--sms-success-border);
+  background: var(--sms-success-bg);
+  color: var(--sms-success);
+}
+
+.sms-badge-inactive {
+  border-color: var(--sms-danger-border);
+  background: var(--sms-danger-bg);
+  color: var(--sms-danger);
+}
+
+.sms-badge-warning {
+  border-color: var(--sms-warning-border);
+  background: var(--sms-warning-bg);
+  color: var(--sms-warning);
+}
+
+.sms-badge-info {
+  border-color: var(--sms-info-border);
+  background: var(--sms-info-bg);
+  color: var(--sms-info);
+}
+
+.sms-table-row {
+  border-color: var(--sms-line);
+}
+
+.sms-table-row:hover {
+  background: var(--sms-page-soft);
+}
+
+.sms-input-panel {
+  background: var(--sms-card);
+  border: 1px solid var(--sms-line);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 18px rgba(16, 35, 63, 0.04);
 }

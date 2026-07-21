@@ -17,5 +17,9 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // shadcn components intentionally export their styling variants beside components.
+      'react-refresh/only-export-components': 'off',
+    },
   },
 ])

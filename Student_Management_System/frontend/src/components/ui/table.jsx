@@ -1,5 +1,3 @@
-import * as React from "react"
-
 import { cn } from "@/lib/utils"
 
 function Table({
@@ -60,7 +58,7 @@ function TableRow({
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        "sms-table-row border-b transition-colors has-aria-expanded:bg-[var(--sms-gold-soft)] data-[state=selected]:bg-[var(--sms-gold-soft)]",
         className
       )}
       {...props} />
@@ -75,7 +73,7 @@ function TableHead({
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "h-10 px-2 text-left align-middle text-xs font-semibold uppercase tracking-wide whitespace-nowrap text-[var(--sms-muted)] [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props} />

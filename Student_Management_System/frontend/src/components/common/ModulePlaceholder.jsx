@@ -29,7 +29,9 @@ function ModulePlaceholder({
                         {actions.map((action) => (
                             <Button
                                 key={action}
-                                className="bg-[var(--sms-ink)] hover:bg-[var(--sms-ink-soft)]"
+                                className="sms-btn-primary"
+                                disabled
+                                title="This feature is coming soon"
                             >
                                 {action}
                             </Button>
@@ -38,8 +40,8 @@ function ModulePlaceholder({
                 )}
             </div>
 
-            <section className="rounded-md border border-[var(--sms-line)] bg-white">
-                <div className="border-b border-[var(--sms-line)] bg-[var(--sms-paper-soft)] px-5 py-4">
+            <section className="sms-card overflow-hidden">
+                <div className="sms-section-header px-5 py-4">
                     <h2 className="font-semibold text-[var(--sms-ink)]">
                         Module Preview
                     </h2>
@@ -51,7 +53,7 @@ function ModulePlaceholder({
                             {items.map((item) => (
                                 <div
                                     key={item.title}
-                                    className="rounded-md border border-[var(--sms-line)] bg-[var(--sms-paper)] p-4"
+                                    className="sms-card-soft p-4"
                                 >
                                     <p className="font-semibold text-[var(--sms-ink)]">
                                         {item.title}

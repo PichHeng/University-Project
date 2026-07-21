@@ -22,7 +22,7 @@ function AdminDashboard() {
         {dashboardStats.admin.map((item) => (
           <div
             key={item.label}
-            className="rounded-md border border-[var(--sms-line)] bg-white p-5 shadow-sm"
+            className="sms-card p-5"
           >
             <p className="text-3xl font-bold text-[var(--sms-ink)]">
               {item.value}
@@ -34,8 +34,8 @@ function AdminDashboard() {
         ))}
       </section>
 
-      <section className="mt-8 rounded-md border border-[var(--sms-line)] bg-white">
-        <div className="border-b border-[var(--sms-line)] bg-[var(--sms-paper-soft)] px-5 py-4">
+      <section className="sms-card mt-8 overflow-hidden">
+        <div className="sms-section-header px-5 py-4">
           <h2 className="font-semibold text-[var(--sms-ink)]">
             Recent Students
           </h2>
@@ -58,7 +58,7 @@ function AdminDashboard() {
               {recentStudents.map((student) => (
                 <tr
                   key={student.id}
-                  className="border-b border-[var(--sms-line)] hover:bg-[var(--sms-paper-soft)]"
+                  className="sms-table-row border-b"
                 >
                   <td className="px-5 py-3 font-mono text-xs">
                     {student.id}
@@ -68,7 +68,7 @@ function AdminDashboard() {
                   <td className="px-5 py-3">{student.department}</td>
                   <td className="px-5 py-3">{student.phone}</td>
                   <td className="px-5 py-3">
-                    <Badge variant="outline">{student.status}</Badge>
+                    <Badge variant="outline" className={student.status === "Active" ? "sms-badge-active" : "sms-badge-inactive"}>{student.status}</Badge>
                   </td>
                 </tr>
               ))}

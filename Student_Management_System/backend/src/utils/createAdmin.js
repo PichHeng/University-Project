@@ -1,45 +1,50 @@
+import bcrypt from "bcrypt";
+import dotenv from "dotenv";
 
+import db from "../config/db.js";
 
+dotenv.config({ quiet: true });
 
+async function createAdmin() {
+    const username = process.env.ADMIN_USERNAME;
+    const password = process.env.ADMIN_PASSWORD;
 
-
-const bcrypt = require("bcrypt");
-require("dotenv").config();
-
-const db = require("../config/db");
-
-const createAdmin = async () => {
-    try {
-        const username = "admin";
-        const password = "Admin@123";
-
-        const [existingAdmin] = await db.query(
-            "SELECT user_id FROM users WHERE username = ? LIMIT 1",
-            [username]
+    if (!username || !password) {
+        throw new Error(
+            "ADMIN_USERNAME and ADMIN_PASSWORD must be set in the environment."
         );
-
-        if (existingAdmin.length > 0) {
-            console.log("អាហុង account already exists.");
-            process.exit(0);
-        }
-
-        const saltRounds = 10;
-        const passwordHash = await bcrypt.hash(password, saltRounds);
-
-        await db.query(
-            "INSERT INTO users (username, password_hash, role, status) VALUE (?, ?, ?, ?)",
-            [username, passwordHash, "admin", "active"]
-        );
-
-        console.log("Admin account created successfully.");
-        console.log("Username: admin");
-        console.log("Password: Admin@123");
-
-        process.exit(0);
-    } catch (error) {
-        console.error("Create admin error ", error.message);
-        process.exit(1);
     }
-};
 
-createAdmin();
+    if (password.length < 8) {
+        throw new Error("ADMIN_PASSWORD must be at least 8 characters.");
+    }
+
+    const [existingAdmins] = await db.query(
+        "SELECT user_id FROM users WHERE username = ? LIMIT 1",
+        [username]
+    );
+
+    if (existingAdmins.length > 0) {
+        console.log("Admin account already exists.");
+        return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    await db.query(
+        `INSERT INTO users (username, password_hash, role, status)
+         VALUES (?, ?, 'admin', 'active')`,
+        [username, passwordHash]
+    );
+
+    console.log("Admin account created successfully.");
+}
+
+try {
+    await createAdmin();
+} catch (error) {
+    console.error("Create admin error:", error.message);
+    process.exitCode = 1;
+} finally {
+    await db.end();
+}

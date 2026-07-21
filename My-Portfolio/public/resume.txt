@@ -1,0 +1,19 @@
+Tween
+Software Engineering Student
+
+Profile
+Passionate Software Engineering Student focused on building modern web and mobile applications.
+
+Skills
+HTML, CSS, JavaScript, React, Tailwind CSS, Node.js, Express.js, MySQL, MongoDB, C++, Java, Dart, Flutter, Git, GitHub, VS Code, Linux, Postman
+
+Projects
+Employee Management System - C++, File Handling, OOP
+Hospital Management System - C++, Authentication, Binary Files
+Population Growth Modeling - Differential Equation, Mathematical Modeling
+Flutter Mobile App - Dart, Flutter
+
+Contact
+Email: hello@example.com
+GitHub: https://github.com/
+LinkedIn: https://www.linkedin.com/

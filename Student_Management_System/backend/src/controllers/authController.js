@@ -1,14 +1,18 @@
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
+import db from "../config/db.js";
 
+function getJwtSecret() {
+    if (!process.env.JWT_SECRET) {
+        throw new Error("JWT_SECRET is not configured.");
+    }
 
+    return process.env.JWT_SECRET;
+}
 
-
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const db = require("../config/db");
-
-// Create login Function 
-const login = async (req, res) => {
+// Create login function
+export async function login(req, res) {
     try {
         const { username, password } = req.body;
 
@@ -20,7 +24,15 @@ const login = async (req, res) => {
         }
 
         const [users] = await db.query(
-            "SELECT user_id, username, password_hash, role, status FROM users WHERE username = ? LIMIT 1",
+            `SELECT 
+        user_id, 
+        username, 
+        password_hash, 
+        role, 
+        status 
+       FROM users 
+       WHERE username = ? 
+       LIMIT 1`,
             [username]
         );
 
@@ -40,7 +52,10 @@ const login = async (req, res) => {
             });
         }
 
-        const isPasswordCorrect = await bcrypt.compare(password, user.password_hash);
+        const isPasswordCorrect = await bcrypt.compare(
+            password,
+            user.password_hash
+        );
 
         if (!isPasswordCorrect) {
             return res.status(401).json({
@@ -55,7 +70,7 @@ const login = async (req, res) => {
                 username: user.username,
                 role: user.role,
             },
-            process.env.JWT_SECRET,
+            getJwtSecret(),
             {
                 expiresIn: process.env.JWT_EXPIRES_IN || "1d",
             }
@@ -68,11 +83,13 @@ const login = async (req, res) => {
             user: {
                 user_id: user.user_id,
                 username: user.username,
+                name: user.username,
                 role: user.role,
+                status: user.status,
             },
         });
     } catch (error) {
-        console.error("Login error:", error.message);
+        console.error("Login error:", error);
 
         res.status(500).json({
             success: false,
@@ -80,12 +97,20 @@ const login = async (req, res) => {
             error: error.message,
         });
     }
-};
+}
 
-const getMe = async (req, res) => {
+export async function getMe(req, res) {
     try {
         const [users] = await db.query(
-            "SELECT user_id, username, role, status, created_at FROM users WHERE user_id = ? LIMIT 1",
+            `SELECT 
+        user_id, 
+        username, 
+        role, 
+        status, 
+        created_at 
+       FROM users 
+       WHERE user_id = ? 
+       LIMIT 1`,
             [req.user.user_id]
         );
 
@@ -96,12 +121,17 @@ const getMe = async (req, res) => {
             });
         }
 
+        const user = users[0];
+
         res.status(200).json({
             success: true,
-            user: users[0],
+            user: {
+                ...user,
+                name: user.username,
+            },
         });
     } catch (error) {
-        console.error("Get me error:", error.message);
+        console.error("Get me error:", error);
 
         res.status(500).json({
             success: false,
@@ -109,9 +139,4 @@ const getMe = async (req, res) => {
             error: error.message,
         });
     }
-};
-
-module.exports = {
-    login,
-    getMe,
-};
+}

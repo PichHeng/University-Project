@@ -21,7 +21,7 @@ function TeacherDashboard() {
                 {dashboardStats.teacher.map((item) => (
                     <div
                         key={item.label}
-                        className="rounded-md border border-[var(--sms-line)] bg-white p-5 shadow-sm"
+                        className="sms-card p-5"
                     >
                         <p className="text-3xl font-bold text-[var(--sms-ink)]">
                             {item.value}
@@ -33,7 +33,7 @@ function TeacherDashboard() {
                 ))}
             </section>
 
-            <section className="mt-8 rounded-md border border-[var(--sms-line)] bg-white p-5">
+            <section className="sms-card mt-8 p-5">
                 <h2 className="font-semibold text-[var(--sms-ink)]">
                     Today&apos;s Schedule
                 </h2>
