@@ -73,12 +73,12 @@ function SelectContent({
         align={align}
         alignOffset={alignOffset}
         alignItemWithTrigger={alignItemWithTrigger}
-          className="isolate z-[10000] max-w-[calc(100vw-1rem)]">
+          className="isolate z-[10001] max-h-[min(20rem,calc(100vh-1rem))] max-w-[calc(100vw-1rem)]">
         <SelectPrimitive.Popup
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
           className={cn(
-            "relative isolate z-[10000] w-[var(--anchor-width)] min-w-[var(--anchor-width)] max-w-[calc(100vw-1rem)] origin-(--transform-origin) overflow-hidden rounded-md border border-[var(--sms-line-strong)] bg-[var(--sms-card)] text-[var(--sms-text)] shadow-2xl shadow-slate-950/20 duration-100 data-[align-trigger=true]:animate-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "relative isolate z-[10001] w-[var(--anchor-width)] min-w-[var(--anchor-width)] max-w-[calc(100vw-1rem)] origin-(--transform-origin) overflow-hidden rounded-md border border-[var(--sms-line-strong)] bg-[var(--sms-card)] text-[var(--sms-text)] shadow-2xl shadow-slate-950/20 duration-100 data-[align-trigger=true]:animate-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             className
           )}
           {...props}>

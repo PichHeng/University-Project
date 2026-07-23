@@ -19,3 +19,8 @@ export async function deleteDepartment(departmentId) {
     const response = await api.delete(`/departments/${departmentId}`);
     return response.data;
 }
+
+export async function getDepartmentDetails(departmentId) {
+    const response = await api.get(`/departments/${departmentId}/details`);
+    return response.data;
+}

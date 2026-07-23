@@ -1,440 +1,127 @@
-import { useMemo, useState } from "react";
-import { exportRecordToCsv, exportVisibleTableToCsv } from "@/lib/exportCsv";
-import {
-  Download,
-  FileSpreadsheet,
-  FileText,
-  Plus,
-  Search,
-  Trash2,
-} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { FileSpreadsheet, FileText, LoaderCircle, RefreshCcw } from "lucide-react";
 
-import {
-  teacherCoursesData,
-  teacherReportsData,
-  teacherReportStats,
-} from "@/data/mockData";
-
-import { Button } from "@/components/ui/button";
+import { getTeacherReports } from "@/services/reportService";
+import { exportToCsv } from "@/lib/exportCsv";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+const summaryDefinitions = [
+    { label: "My Courses", key: "totalCourses" },
+    { label: "My Students", key: "totalStudents" },
+    { label: "Assignments", key: "totalAssignments" },
+    { label: "Grades Recorded", key: "totalGrades" },
+];
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+function statusClass(status) {
+    return String(status).toLowerCase() === "active" ? "sms-badge-active" : "sms-badge-inactive";
+}
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+function gradeClass(letter) {
+    if (letter === "A") return "sms-badge-active";
+    if (letter === "B" || letter === "C") return "sms-badge-info";
+    if (letter === "D") return "sms-badge-warning";
+    return "sms-badge-inactive";
+}
 
-const emptyForm = {
-  reportTitle: "",
-  reportType: "Attendance",
-  courseCode: "ITE-301",
-  courseName: "Web Application Development",
-  format: "PDF",
-};
+function formatScore(value) {
+    const score = Number(value);
+    return Number.isFinite(score) ? score.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "N/A";
+}
 
-function TeacherReports() {
-  const [reports, setReports] = useState(teacherReportsData);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [formData, setFormData] = useState(emptyForm);
+const courseColumns = [
+    { header: "Course Code", key: "course_code" },
+    { header: "Course Name", key: "course_name" },
+    { header: "Department", key: "department_name", render: (row) => row.department_name || "No Department" },
+    { header: "Semester", key: "semester", render: (row) => row.semester || "N/A" },
+    { header: "Credit", key: "credit" },
+    { header: "Students", key: "student_count" },
+    { header: "Status", key: "status", render: (row) => <Badge variant="outline" className={statusClass(row.status)}>{row.status || "N/A"}</Badge> },
+];
 
-  const filteredReports = useMemo(() => {
-    const keyword = searchTerm.toLowerCase();
+const studentColumns = [
+    { header: "Course", key: "course_code", render: (row) => <><p className="font-medium">{row.course_name}</p><p className="font-mono text-xs text-[var(--sms-muted)]">{row.course_code}</p></>, exportValue: (row) => `${row.course_code} - ${row.course_name}` },
+    { header: "Student Code", key: "student_code" },
+    { header: "Student Name", key: "student_name" },
+    { header: "Gender", key: "gender", render: (row) => <span className="capitalize">{row.gender || "N/A"}</span> },
+    { header: "Enrollment Status", key: "enrollment_status", render: (row) => <Badge variant="outline" className={statusClass(row.enrollment_status)}>{row.enrollment_status || "N/A"}</Badge> },
+];
 
-    return reports.filter((report) => {
-      return (
-        report.reportCode.toLowerCase().includes(keyword) ||
-        report.reportTitle.toLowerCase().includes(keyword) ||
-        report.reportType.toLowerCase().includes(keyword) ||
-        report.courseCode.toLowerCase().includes(keyword) ||
-        report.courseName.toLowerCase().includes(keyword) ||
-        report.format.toLowerCase().includes(keyword) ||
-        report.status.toLowerCase().includes(keyword)
-      );
-    });
-  }, [reports, searchTerm]);
+const gradeColumns = [
+    { header: "Course", key: "course_code", render: (row) => <><p className="font-medium">{row.course_name}</p><p className="font-mono text-xs text-[var(--sms-muted)]">{row.course_code}</p></>, exportValue: (row) => `${row.course_code} - ${row.course_name}` },
+    { header: "Student", key: "student_code", render: (row) => <><p className="font-medium">{row.student_name}</p><p className="font-mono text-xs text-[var(--sms-muted)]">{row.student_code}</p></>, exportValue: (row) => `${row.student_code} - ${row.student_name}` },
+    { header: "Assignment", key: "assignment_score" },
+    { header: "Midterm", key: "midterm_score" },
+    { header: "Final", key: "final_score" },
+    { header: "Total", key: "total_score", render: (row) => formatScore(row.total_score) },
+    { header: "Grade", key: "grade_letter", render: (row) => <Badge variant="outline" className={gradeClass(row.grade_letter)}>{row.grade_letter || "N/A"}</Badge> },
+    { header: "Remark", key: "remark", render: (row) => row.remark || "N/A" },
+];
 
-  function openGenerateDialog() {
-    setFormData(emptyForm);
-    setIsDialogOpen(true);
-  }
+const assignmentColumns = [
+    { header: "Course", key: "course_code", render: (row) => <><p className="font-medium">{row.course_name}</p><p className="font-mono text-xs text-[var(--sms-muted)]">{row.course_code}</p></>, exportValue: (row) => `${row.course_code} - ${row.course_name}` },
+    { header: "Title", key: "title" },
+    { header: "Due Date", key: "due_date", render: (row) => row.due_date || "N/A" },
+    { header: "Max Score", key: "max_score", render: (row) => formatScore(row.max_score) },
+    { header: "Status", key: "status", render: (row) => <Badge variant="outline" className={statusClass(row.status)}>{row.status || "N/A"}</Badge> },
+];
 
-  function handleInputChange(event) {
-    const { name, value } = event.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  }
-
-  function handleSelectChange(name, value) {
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  }
-
-  function handleCourseChange(courseCode) {
-    const course = teacherCoursesData.find(
-      (item) => item.courseCode === courseCode
-    );
-
-    setFormData((prev) => ({
-      ...prev,
-      courseCode,
-      courseName: course?.courseName || "",
-    }));
-  }
-
-  function handleGenerateReport(event) {
-    event.preventDefault();
-
-    const newReport = {
-      id: Date.now(),
-      reportCode: `T-RPT-${1000 + reports.length + 1}`,
-      reportTitle: formData.reportTitle,
-      reportType: formData.reportType,
-      courseCode: formData.courseCode,
-      courseName: formData.courseName,
-      format: formData.format,
-      generatedAt: new Date().toISOString().split("T")[0],
-      status: "Ready",
-    };
-
-    setReports((prev) => [newReport, ...prev]);
-    setIsDialogOpen(false);
-    setFormData(emptyForm);
-  }
-
-  function handleDelete(reportId) {
-    const isConfirmed = window.confirm(
-      "Are you sure you want to delete this report?"
-    );
-
-    if (!isConfirmed) return;
-
-    setReports((prev) => prev.filter((report) => report.id !== reportId));
-  }
-
-  function handleDownload(report) {
-    if (report.format === "PDF") {
-      window.print();
-      return;
+function ReportSection({ title, rows, columns, filename, emptyMessage, loading }) {
+    function exportRows() {
+        exportToCsv(filename, rows, columns.map((column) => ({ header: column.header, key: column.key, value: column.exportValue })));
     }
 
-    exportRecordToCsv(`${report.reportCode}.csv`, report);
-  }
+    return <section className="sms-card overflow-hidden">
+        <div className="sms-section-header flex flex-col justify-between gap-3 px-5 py-4 sm:flex-row sm:items-center"><div><h2 className="font-semibold text-[var(--sms-ink)]">{title}</h2><p className="text-sm text-[var(--sms-muted)]">{rows.length} record(s)</p></div><Button type="button" variant="outline" size="sm" onClick={exportRows} disabled={loading || !rows.length} className="print:hidden"><FileSpreadsheet className="mr-2 h-4 w-4" />Export CSV</Button></div>
+        <div className="overflow-x-auto"><Table><TableHeader><TableRow>{columns.map((column) => <TableHead key={column.header}>{column.header}</TableHead>)}</TableRow></TableHeader><TableBody>
+            {loading ? <TableRow><TableCell colSpan={columns.length} className="py-12 text-center text-[var(--sms-muted)]"><LoaderCircle className="mx-auto mb-2 h-5 w-5 animate-spin" />Loading report…</TableCell></TableRow>
+                : rows.length ? rows.map((row, index) => <TableRow key={`${filename}-${index}`}>{columns.map((column) => <TableCell key={column.header}>{column.render ? column.render(row) : row[column.key] ?? "N/A"}</TableCell>)}</TableRow>)
+                    : <TableRow><TableCell colSpan={columns.length} className="py-12 text-center text-[var(--sms-muted)]">{emptyMessage}</TableCell></TableRow>}
+        </TableBody></Table></div>
+    </section>;
+}
 
-  function getFormatBadgeClass(format) {
-    return format === "PDF"
-      ? "sms-badge-inactive"
-      : "sms-badge-active";
-  }
+function TeacherReports() {
+    const [reports, setReports] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
-  function getStatusBadgeClass(status) {
-    return status === "Ready"
-      ? "sms-badge-active"
-      : "sms-badge-warning";
-  }
+    const loadReports = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError("");
+            const response = await getTeacherReports();
+            setReports(response.data || null);
+        } catch (requestError) {
+            setReports(null);
+            setError(requestError.response?.data?.message || "Failed to load teacher reports.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-  return (
-    <>
-      <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--sms-gold)]">
-            Teacher
-          </p>
+    useEffect(() => {
+        // Loading remote data on mount is intentional.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        loadReports();
+    }, [loadReports]);
 
-          <h1 className="mt-2 text-3xl font-bold text-[var(--sms-ink)]">
-            Teacher Reports
-          </h1>
+    const teacher = reports?.teacher;
+    const summary = reports?.summary || {};
 
-          <p className="mt-2 max-w-2xl text-[var(--sms-muted)]">
-            Generate and manage attendance, grade, assignment, and course summary
-            reports for your assigned courses.
-          </p>
+    return <>
+        <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--sms-gold)]">Teacher</p><h1 className="mt-2 text-3xl font-bold text-[var(--sms-ink)]">Academic Reports</h1><p className="mt-2 text-[var(--sms-muted)]">Courses, students, grades, and assignments from your teaching records.</p></div><div className="flex flex-wrap gap-2 print:hidden"><Button type="button" variant="outline" onClick={loadReports} disabled={loading}><RefreshCcw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />Refresh</Button><Button type="button" onClick={() => window.print()}><FileText className="mr-2 h-4 w-4" />Print Report</Button></div></div>
+        {error && <div role="alert" className="mb-5 rounded-md border border-[var(--sms-danger-border)] bg-[var(--sms-danger-bg)] p-4 text-sm text-[var(--sms-danger)]">{error}</div>}
+        <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{summaryDefinitions.map((stat) => <div key={stat.key} className="sms-card p-5"><p className="text-3xl font-bold text-[var(--sms-ink)]">{loading ? "…" : summary[stat.key] ?? 0}</p><p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--sms-muted)]">{stat.label}</p></div>)}</section>
+        <section className="sms-card mb-6 grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-4"><div><p className="text-xs font-semibold uppercase text-[var(--sms-muted)]">Teacher Code</p><p className="mt-1 font-medium">{teacher?.teacher_code || "N/A"}</p></div><div><p className="text-xs font-semibold uppercase text-[var(--sms-muted)]">Full Name</p><p className="mt-1 font-medium">{teacher?.full_name || "N/A"}</p></div><div><p className="text-xs font-semibold uppercase text-[var(--sms-muted)]">Department</p><p className="mt-1 font-medium">{teacher?.department_name || "No Department"}</p></div><div><p className="text-xs font-semibold uppercase text-[var(--sms-muted)]">Gender</p><p className="mt-1 font-medium capitalize">{teacher?.gender || "N/A"}</p></div></section>
+        <div className="space-y-6">
+            <ReportSection title="My Courses" rows={reports?.courses || []} columns={courseColumns} filename="teacher-courses-report.csv" emptyMessage="No courses assigned to you." loading={loading} />
+            <ReportSection title="Students by Course" rows={reports?.studentsByCourse || []} columns={studentColumns} filename="teacher-students-report.csv" emptyMessage="No enrolled students found." loading={loading} />
+            <ReportSection title="Grades by Course" rows={reports?.gradesByCourse || []} columns={gradeColumns} filename="teacher-grades-report.csv" emptyMessage="No grades recorded yet." loading={loading} />
+            <ReportSection title="Assignments by Course" rows={reports?.assignmentsByCourse || []} columns={assignmentColumns} filename="teacher-assignments-report.csv" emptyMessage="No assignments found." loading={loading} />
         </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={openGenerateDialog}
-            className="sms-btn-primary"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Generate Report
-          </Button>
-
-                    <Button type="button" variant="outline" onClick={() => window.print()}>
-            <FileText className="mr-2 h-4 w-4" />
-            PDF
-          </Button>
-
-                    <Button type="button" variant="outline" onClick={() => exportVisibleTableToCsv("teacher-reports.csv")}>
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Excel
-          </Button>
-        </div>
-      </div>
-
-      <section className="mb-8 grid gap-4 md:grid-cols-4">
-        {teacherReportStats.map((item) => (
-          <div
-            key={item.label}
-            className="sms-card p-5"
-          >
-            <p className="text-3xl font-bold text-[var(--sms-ink)]">
-              {item.value}
-            </p>
-
-            <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--sms-muted)]">
-              {item.label}
-            </p>
-          </div>
-        ))}
-      </section>
-
-      <section className="sms-card overflow-hidden">
-        <div className="sms-section-header flex flex-col justify-between gap-4 px-5 py-4 md:flex-row md:items-center">
-          <div>
-            <h2 className="font-semibold text-[var(--sms-ink)]">
-              Generated Reports
-            </h2>
-
-            <p className="text-sm text-[var(--sms-muted)]">
-              {filteredReports.length} report(s) found
-            </p>
-          </div>
-
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-[var(--sms-muted)]" />
-
-            <Input
-              placeholder="Search report..."
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              className="pl-9"
-            />
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Report ID</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Course</TableHead>
-                <TableHead>Format</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {filteredReports.length > 0 ? (
-                filteredReports.map((report) => (
-                  <TableRow key={report.id}>
-                    <TableCell className="font-mono text-xs">
-                      {report.reportCode}
-                    </TableCell>
-
-                    <TableCell className="font-medium">
-                      {report.reportTitle}
-                    </TableCell>
-
-                    <TableCell>{report.reportType}</TableCell>
-
-                    <TableCell>
-                      {report.courseName}
-                      <p className="text-xs text-[var(--sms-muted)]">
-                        {report.courseCode}
-                      </p>
-                    </TableCell>
-
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={getFormatBadgeClass(report.format)}
-                      >
-                        {report.format}
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell className="font-mono text-xs">
-                      {report.generatedAt}
-                    </TableCell>
-
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={getStatusBadgeClass(report.status)}
-                      >
-                        {report.status}
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleDownload(report)}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleDelete(report.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-[var(--sms-danger)]" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan="8"
-                    className="py-12 text-center text-[var(--sms-muted)]"
-                  >
-                    No reports found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </section>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Generate Teacher Report</DialogTitle>
-          </DialogHeader>
-
-          <form onSubmit={handleGenerateReport} className="space-y-5">
-            <div className="space-y-2">
-              <Label>Report Title</Label>
-              <Input
-                name="reportTitle"
-                value={formData.reportTitle}
-                onChange={handleInputChange}
-                placeholder="ITE-301 Attendance Report"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Report Type</Label>
-              <Select
-                value={formData.reportType}
-                onValueChange={(value) =>
-                  handleSelectChange("reportType", value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select report type" />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="Attendance">Attendance</SelectItem>
-                  <SelectItem value="Grades">Grades</SelectItem>
-                  <SelectItem value="Assignments">Assignments</SelectItem>
-                  <SelectItem value="Course Summary">Course Summary</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Course</Label>
-              <Select
-                value={formData.courseCode}
-                onValueChange={handleCourseChange}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select course" />
-                </SelectTrigger>
-
-                <SelectContent>
-                  {teacherCoursesData.map((course) => (
-                    <SelectItem key={course.id} value={course.courseCode}>
-                      {course.courseCode} — {course.courseName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>File Format</Label>
-              <Select
-                value={formData.format}
-                onValueChange={(value) => handleSelectChange("format", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select format" />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value="PDF">PDF</SelectItem>
-                  <SelectItem value="Excel">Excel</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="rounded-md border border-[var(--sms-line)] bg-[var(--sms-paper)] p-4 text-sm text-[var(--sms-muted)]">
-              Later, this button will call the backend API to generate real PDF
-              and Excel files.
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-
-              <Button
-                type="submit"
-                className="sms-btn-primary"
-              >
-                Generate
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
+    </>;
 }
 
 export default TeacherReports;

@@ -19,3 +19,13 @@ export async function deleteCourse(courseId) {
     const response = await api.delete(`/courses/${courseId}`);
     return response.data;
 }
+
+export async function getCourseStudents(courseId) {
+    const response = await api.get(`/courses/${courseId}/students`);
+    return response.data;
+}
+
+export async function getMyTeacherCourses() {
+    const response = await api.get("/courses/teacher/me");
+    return response.data;
+}

@@ -8,16 +8,20 @@ import {
     createCourse,
     updateCourse,
     deleteCourse,
+    getCourseStudents,
+    getMyTeacherCourses,
 } from "../controllers/courseController.js";
 
 const router = express.Router();
 
 router.use(protect);
-router.use(allowRoles("admin"));
 
-router.get("/", getCourses);
-router.post("/", createCourse);
-router.put("/:id", updateCourse);
-router.delete("/:id", deleteCourse);
+router.get("/teacher/me", allowRoles("teacher"), getMyTeacherCourses);
+
+router.get("/", allowRoles("admin"), getCourses);
+router.get("/:id/students", allowRoles("admin", "teacher"), getCourseStudents);
+router.post("/", allowRoles("admin"), createCourse);
+router.put("/:id", allowRoles("admin"), updateCourse);
+router.delete("/:id", allowRoles("admin"), deleteCourse);
 
 export default router;

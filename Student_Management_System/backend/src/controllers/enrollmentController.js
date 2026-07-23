@@ -73,7 +73,7 @@ export async function getEnrollments(req, res) {
       INNER JOIN students s ON e.student_id = s.student_id
       INNER JOIN courses c ON e.course_id = c.course_id
       LEFT JOIN departments d ON c.department_id = d.department_id
-      ORDER BY e.enrollment_id DESC`
+      ORDER BY s.student_code ASC, c.course_code ASC`
         );
 
         const formattedEnrollments = enrollments.map((enrollment) => ({
@@ -281,5 +281,166 @@ export async function deleteEnrollment(req, res) {
             message: "Failed to delete enrollment",
             error: error.message,
         });
+    }
+}
+
+async function findCurrentStudent(userId) {
+    const [students] = await db.query(
+        `SELECT student_id AS studentId
+         FROM students
+         WHERE user_id = ?
+         LIMIT 1`,
+        [userId]
+    );
+
+    return students[0] || null;
+}
+
+export async function getMyAvailableCourses(req, res) {
+    try {
+        const student = await findCurrentStudent(req.user.user_id);
+
+        if (!student) {
+            return res.status(404).json({ success: false, message: "Student profile not found." });
+        }
+
+        const [courses] = await db.query(
+            `SELECT
+                c.course_id AS id,
+                c.course_code AS courseCode,
+                c.course_name AS courseName,
+                c.credit,
+                c.semester,
+                c.description,
+                d.department_name AS department,
+                CONCAT(t.first_name, ' ', t.last_name) AS teacher
+             FROM courses c
+             LEFT JOIN departments d ON d.department_id = c.department_id
+             LEFT JOIN teachers t ON t.teacher_id = c.teacher_id
+             WHERE c.status = 'active'
+               AND NOT EXISTS (
+                   SELECT 1 FROM enrollments e
+                   WHERE e.student_id = ? AND e.course_id = c.course_id
+               )
+             ORDER BY c.course_code ASC`,
+            [student.studentId]
+        );
+
+        return res.json({
+            success: true,
+            data: courses.map((course) => ({
+                ...course,
+                department: course.department || "No Department",
+                teacher: course.teacher || "Unassigned",
+                semester: course.semester || "",
+                description: course.description || "",
+            })),
+        });
+    } catch (error) {
+        console.error("Get available courses error:", error);
+        return res.status(500).json({ success: false, message: "Failed to fetch available courses." });
+    }
+}
+
+export async function enrollInCourse(req, res) {
+    try {
+        const { courseId, courseCode } = req.body;
+
+        if (!courseId && !courseCode) {
+            return res.status(400).json({ success: false, message: "Course ID or course code is required." });
+        }
+
+        const student = await findCurrentStudent(req.user.user_id);
+        if (!student) {
+            return res.status(404).json({ success: false, message: "Student profile not found." });
+        }
+
+        const [courses] = await db.query(
+            `SELECT course_id AS courseId, course_code AS courseCode, course_name AS courseName
+             FROM courses
+             WHERE status = 'active'
+               AND (${courseId ? "course_id = ?" : "course_code = ?"})
+             LIMIT 1`,
+            [courseId || courseCode]
+        );
+
+        if (!courses.length) {
+            return res.status(404).json({ success: false, message: "Active course not found." });
+        }
+
+        const course = courses[0];
+        const [existing] = await db.query(
+            `SELECT enrollment_id FROM enrollments WHERE student_id = ? AND course_id = ? LIMIT 1`,
+            [student.studentId, course.courseId]
+        );
+
+        if (existing.length) {
+            return res.status(409).json({ success: false, message: "You are already enrolled in this course." });
+        }
+
+        const [result] = await db.query(
+            `INSERT INTO enrollments (student_id, course_id, enrollment_date, status)
+             VALUES (?, ?, CURDATE(), 'active')`,
+            [student.studentId, course.courseId]
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: `Successfully enrolled in ${course.courseCode} - ${course.courseName}.`,
+            data: { id: result.insertId },
+        });
+    } catch (error) {
+        if (error.code === "ER_DUP_ENTRY") {
+            return res.status(409).json({ success: false, message: "You are already enrolled in this course." });
+        }
+        console.error("Student enrollment error:", error);
+        return res.status(500).json({ success: false, message: "Failed to enroll in course." });
+    }
+}
+
+export async function getMyEnrolledCourses(req, res) {
+    try {
+        const student = await findCurrentStudent(req.user.user_id);
+        if (!student) {
+            return res.status(404).json({ success: false, message: "Student profile not found." });
+        }
+
+        const [courses] = await db.query(
+            `SELECT
+                e.enrollment_id AS enrollmentId,
+                e.enrollment_date AS enrollmentDate,
+                e.status AS enrollmentStatus,
+                c.course_id AS id,
+                c.course_code AS courseCode,
+                c.course_name AS courseName,
+                c.credit,
+                c.semester,
+                c.status AS courseStatus,
+                d.department_name AS department,
+                CONCAT(t.first_name, ' ', t.last_name) AS teacher
+             FROM enrollments e
+             INNER JOIN courses c ON c.course_id = e.course_id
+             LEFT JOIN departments d ON d.department_id = c.department_id
+             LEFT JOIN teachers t ON t.teacher_id = c.teacher_id
+             WHERE e.student_id = ?
+             ORDER BY c.course_code ASC`,
+            [student.studentId]
+        );
+
+        return res.json({
+            success: true,
+            data: courses.map((course) => ({
+                ...course,
+                enrollmentDate: formatDate(course.enrollmentDate),
+                enrollmentStatus: formatStatus(course.enrollmentStatus),
+                courseStatus: formatStatus(course.courseStatus),
+                department: course.department || "No Department",
+                teacher: course.teacher || "Unassigned",
+                semester: course.semester || "",
+            })),
+        });
+    } catch (error) {
+        console.error("Get enrolled courses error:", error);
+        return res.status(500).json({ success: false, message: "Failed to fetch enrolled courses." });
     }
 }

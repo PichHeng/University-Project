@@ -43,7 +43,7 @@ export async function getUsers(req, res) {
       FROM users u
       LEFT JOIN students s ON u.user_id = s.user_id
       LEFT JOIN teachers t ON u.user_id = t.user_id
-      ORDER BY u.user_id DESC`
+      ORDER BY u.role ASC, u.username ASC`
         );
 
         const formattedUsers = users.map((user) => ({
@@ -251,5 +251,29 @@ export async function deleteUser(req, res) {
             message: "Failed to delete user",
             error: error.message,
         });
+    }
+}
+
+export async function getAdminUsers(req, res) {
+    try {
+        const [users] = await db.query(
+            `SELECT user_id AS id, username, role, status,
+                    created_at AS createdAt, updated_at AS updatedAt
+             FROM users
+             WHERE role = 'admin'
+             ORDER BY role ASC, username ASC`
+        );
+
+        return res.json({
+            success: true,
+            data: users.map((user) => ({
+                ...user,
+                role: formatRole(user.role),
+                status: formatStatus(user.status),
+            })),
+        });
+    } catch (error) {
+        console.error("Get admin users error:", error);
+        return res.status(500).json({ success: false, message: "Failed to fetch admin users." });
     }
 }

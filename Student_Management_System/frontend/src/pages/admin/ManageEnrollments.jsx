@@ -1,7 +1,6 @@
 // import { useMemo, useState } from "react";
 // import { Edit, Plus, Search, Trash2 } from "lucide-react";
 
-// import { enrollmentsData } from "@/data/mockData";
 
 // import { Button } from "@/components/ui/button";
 // import { Badge } from "@/components/ui/badge";
@@ -502,6 +501,8 @@ function ManageEnrollments() {
     const [courses, setCourses] = useState([]);
 
     const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState("All");
+    const [successMessage, setSuccessMessage] = useState("");
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingEnrollment, setEditingEnrollment] = useState(null);
@@ -572,6 +573,7 @@ function ManageEnrollments() {
         const keyword = searchTerm.toLowerCase();
 
         return enrollments.filter((enrollment) => {
+            if (statusFilter !== "All" && enrollment.status !== statusFilter) return false;
             return (
                 enrollment.studentCode?.toLowerCase().includes(keyword) ||
                 enrollment.studentName?.toLowerCase().includes(keyword) ||
@@ -582,7 +584,7 @@ function ManageEnrollments() {
                 enrollment.enrollmentDate?.toLowerCase().includes(keyword)
             );
         });
-    }, [enrollments, searchTerm]);
+    }, [enrollments, searchTerm, statusFilter]);
 
     function openAddDialog() {
         setEditingEnrollment(null);
@@ -662,7 +664,7 @@ function ManageEnrollments() {
 
     async function handleDelete(enrollment) {
         const isConfirmed = window.confirm(
-            `Are you sure you want to delete this enrollment?\n\nStudent: ${enrollment.studentName}\nCourse: ${enrollment.courseName}`
+            `Delete this enrollment only?\n\nStudent: ${enrollment.studentName} (${enrollment.studentCode})\nCourse: ${enrollment.courseName} (${enrollment.courseCode})\nEnrollment date: ${enrollment.enrollmentDate || "—"}\nStatus: ${enrollment.status}`
         );
 
         if (!isConfirmed) return;
@@ -671,6 +673,7 @@ function ManageEnrollments() {
             setErrorMessage("");
 
             await deleteEnrollment(enrollment.id);
+            setSuccessMessage(`Enrollment for ${enrollment.studentName} in ${enrollment.courseCode} was deleted.`);
             await loadEnrollments();
         } catch (error) {
             const message =
@@ -726,6 +729,7 @@ function ManageEnrollments() {
                     {errorMessage}
                 </div>
             )}
+            {successMessage && <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{successMessage}</div>}
 
             <section className="sms-card rounded-md">
                 <div className="sms-section-header flex flex-col justify-between gap-4 px-5 py-4 md:flex-row md:items-center">
@@ -741,6 +745,8 @@ function ManageEnrollments() {
                         </p>
                     </div>
 
+                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="md:w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="All">All statuses</SelectItem><SelectItem value="Active">Active</SelectItem><SelectItem value="Completed">Completed</SelectItem><SelectItem value="Dropped">Dropped</SelectItem></SelectContent></Select>
                     <div className="relative w-full md:w-80">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-[var(--sms-muted)]" />
 
@@ -750,6 +756,7 @@ function ManageEnrollments() {
                             onChange={(event) => setSearchTerm(event.target.value)}
                             className="pl-9"
                         />
+                    </div>
                     </div>
                 </div>
 

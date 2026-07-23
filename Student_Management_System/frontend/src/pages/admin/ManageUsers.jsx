@@ -1,7 +1,6 @@
 // import { useMemo, useState } from "react";
 // import { Edit, Plus, Search, Trash2 } from "lucide-react";
 
-// import { usersData } from "@/data/mockData";
 
 // import { Button } from "@/components/ui/button";
 // import { Badge } from "@/components/ui/badge";

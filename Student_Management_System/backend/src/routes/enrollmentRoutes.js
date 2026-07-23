@@ -8,16 +8,22 @@ import {
     createEnrollment,
     updateEnrollment,
     deleteEnrollment,
+    getMyAvailableCourses,
+    enrollInCourse,
+    getMyEnrolledCourses,
 } from "../controllers/enrollmentController.js";
 
 const router = express.Router();
 
 router.use(protect);
-router.use(allowRoles("admin"));
 
-router.get("/", getEnrollments);
-router.post("/", createEnrollment);
-router.put("/:id", updateEnrollment);
-router.delete("/:id", deleteEnrollment);
+router.get("/student/available-courses", allowRoles("student"), getMyAvailableCourses);
+router.post("/student/enroll", allowRoles("student"), enrollInCourse);
+router.get("/student/my-courses", allowRoles("student"), getMyEnrolledCourses);
+
+router.get("/", allowRoles("admin"), getEnrollments);
+router.post("/", allowRoles("admin"), createEnrollment);
+router.put("/:id", allowRoles("admin"), updateEnrollment);
+router.delete("/:id", allowRoles("admin"), deleteEnrollment);
 
 export default router;

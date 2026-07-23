@@ -275,8 +275,10 @@ const ManageDepartments = lazy(() => import("@/pages/admin/ManageDepartments"));
 const ManageCourses = lazy(() => import("@/pages/admin/ManageCourses"));
 const ManageEnrollments = lazy(() => import("@/pages/admin/ManageEnrollments"));
 const ManageUsers = lazy(() => import("@/pages/admin/ManageUsers"));
+const ManageAdmins = lazy(() => import("@/pages/admin/ManageAdmins"));
 const AdminReports = lazy(() => import("@/pages/admin/AdminReports"));
 
+const TeacherInfo = lazy(() => import("@/pages/teacher/TeacherInfo"));
 const TeacherDashboard = lazy(() => import("@/pages/teacher/TeacherDashboard"));
 const TeacherCourses = lazy(() => import("@/pages/teacher/TeacherCourses"));
 const TeacherAttendance = lazy(() =>
@@ -296,6 +298,8 @@ const StudentAttendance = lazy(() =>
 );
 const StudentGrades = lazy(() => import("@/pages/student/StudentGrades"));
 const StudentReports = lazy(() => import("@/pages/student/StudentReports"));
+const StudentAssignments = lazy(() => import("@/pages/student/StudentAssignments"));
+const StudentEnrollCourses = lazy(() => import("@/pages/student/StudentEnrollCourses"));
 
 function ProtectedDashboardPage({ role, children }) {
     return (
@@ -384,6 +388,15 @@ function AppRoutes() {
                 />
 
                 <Route
+                    path="/admin/admins"
+                    element={
+                        <ProtectedDashboardPage role="admin">
+                            <ManageAdmins />
+                        </ProtectedDashboardPage>
+                    }
+                />
+
+                <Route
                     path="/admin/reports"
                     element={
                         <ProtectedDashboardPage role="admin">
@@ -448,6 +461,17 @@ function AppRoutes() {
                     }
                 />
 
+                <Route
+                    path="/teacher/profile"
+                    element={
+                        <ProtectedRoute allowedRoles={["teacher"]}>
+                            <DashboardLayout>
+                                <TeacherInfo />
+                            </DashboardLayout>
+                        </ProtectedRoute>
+                    }
+                />
+
                 {/* ================= STUDENT ROUTES ================= */}
 
                 <Route
@@ -500,6 +524,24 @@ function AppRoutes() {
                     element={
                         <ProtectedDashboardPage role="student">
                             <StudentReports />
+                        </ProtectedDashboardPage>
+                    }
+                />
+
+                <Route
+                    path="/student/assignments"
+                    element={
+                        <ProtectedDashboardPage role="student">
+                            <StudentAssignments />
+                        </ProtectedDashboardPage>
+                    }
+                />
+
+                <Route
+                    path="/student/enroll-courses"
+                    element={
+                        <ProtectedDashboardPage role="student">
+                            <StudentEnrollCourses />
                         </ProtectedDashboardPage>
                     }
                 />

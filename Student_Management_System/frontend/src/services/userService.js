@@ -27,3 +27,8 @@ export async function deleteUser(userId) {
     const response = await api.delete(`/users/${userId}`);
     return response.data;
 }
+
+export async function getAdminUsers() {
+    const response = await api.get("/users/admins");
+    return response.data;
+}

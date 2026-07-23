@@ -1,378 +1,389 @@
-import { useMemo, useState } from "react";
-import { exportVisibleTableToCsv } from "@/lib/exportCsv";
-import { FileSpreadsheet, FileText, Save, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { FileSpreadsheet, LoaderCircle, RefreshCcw, Save, Search } from "lucide-react";
 
-import { gradeStudentsData, teacherCoursesData } from "@/data/mockData";
-
-import { Button } from "@/components/ui/button";
+import {
+    getTeacherCourseStudents,
+    getTeacherGradeCourses,
+    saveTeacherGrade,
+    saveTeacherGradesBulk,
+} from "@/services/gradeService";
+import { exportToCsv } from "@/lib/exportCsv";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
-
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/table";
 
-function calculateTotal(assignmentScore, midtermScore, finalScore) {
-  return Number(assignmentScore) + Number(midtermScore) + Number(finalScore);
-}
+const scoreFields = [
+    { field: "assignment_score", label: "Assignment", max: 30 },
+    { field: "midterm_score", label: "Midterm", max: 30 },
+    { field: "final_score", label: "Final", max: 40 },
+];
 
 function calculateGradeLetter(totalScore) {
-  if (totalScore >= 85) return "A";
-  if (totalScore >= 70) return "B";
-  if (totalScore >= 60) return "C";
-  if (totalScore >= 50) return "D";
-  return "F";
+    if (totalScore >= 90) return "A";
+    if (totalScore >= 80) return "B";
+    if (totalScore >= 70) return "C";
+    if (totalScore >= 60) return "D";
+    return "F";
 }
 
-function getGradeBadgeClass(gradeLetter) {
-  if (gradeLetter === "A") {
-    return "sms-badge-active";
-  }
+function calculateResult(draft) {
+    const scores = [];
+    for (const config of scoreFields) {
+        const rawValue = draft?.[config.field];
+        const score = Number(rawValue);
+        if (
+            rawValue === "" ||
+            rawValue === null ||
+            rawValue === undefined ||
+            !Number.isFinite(score) ||
+            score < 0 ||
+            score > config.max
+        ) {
+            return { total: null, letter: "" };
+        }
+        scores.push(Number(score.toFixed(2)));
+    }
 
-  if (gradeLetter === "B") {
-    return "sms-badge-info";
-  }
+    const total = Number(scores.reduce((sum, score) => sum + score, 0).toFixed(2));
+    return { total, letter: calculateGradeLetter(total) };
+}
 
-  if (gradeLetter === "C") {
-    return "sms-badge-warning";
-  }
+function gradeBadgeClass(letter) {
+    if (letter === "A") return "sms-badge-active";
+    if (letter === "B" || letter === "C") return "sms-badge-info";
+    if (letter === "D") return "sms-badge-warning";
+    if (letter === "F") return "sms-badge-inactive";
+    return "";
+}
 
-  if (gradeLetter === "D") {
-    return "border-orange-200 bg-orange-50 text-orange-700";
-  }
+function draftFor(student) {
+    return {
+        assignment_score: String(student.assignment_score ?? 0),
+        midterm_score: String(student.midterm_score ?? 0),
+        final_score: String(student.final_score ?? 0),
+        remark: student.remark || "",
+    };
+}
 
-  return "sms-badge-inactive";
+function draftsMatch(first, second) {
+    return scoreFields.every(
+        ({ field }) => String(first?.[field] ?? "") === String(second?.[field] ?? "")
+    ) && String(first?.remark ?? "") === String(second?.remark ?? "");
 }
 
 function TeacherGrades() {
-  const [selectedCourse, setSelectedCourse] = useState("ITE-301");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [gradeRecords, setGradeRecords] = useState(gradeStudentsData);
+    const [courses, setCourses] = useState([]);
+    const [students, setStudents] = useState([]);
+    const [drafts, setDrafts] = useState({});
+    const [savedDrafts, setSavedDrafts] = useState({});
+    const [persistedEnrollmentIds, setPersistedEnrollmentIds] = useState(new Set());
+    const [selectedCourse, setSelectedCourse] = useState("");
+    const [search, setSearch] = useState("");
+    const [loadingCourses, setLoadingCourses] = useState(true);
+    const [loadingStudents, setLoadingStudents] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [error, setError] = useState("");
+    const [message, setMessage] = useState("");
 
-  const selectedCourseInfo = teacherCoursesData.find(
-    (course) => course.courseCode === selectedCourse
-  );
+    useEffect(() => {
+        let cancelled = false;
 
-  const filteredRecords = useMemo(() => {
-    const keyword = searchTerm.toLowerCase();
+        async function loadCourses() {
+            try {
+                setLoadingCourses(true);
+                setError("");
+                const response = await getTeacherGradeCourses();
+                if (cancelled) return;
 
-    return gradeRecords.filter((record) => {
-      const sameCourse = record.courseCode === selectedCourse;
-
-      const matchSearch =
-        record.studentCode.toLowerCase().includes(keyword) ||
-        record.studentName.toLowerCase().includes(keyword) ||
-        record.courseName.toLowerCase().includes(keyword);
-
-      return sameCourse && matchSearch;
-    });
-  }, [gradeRecords, selectedCourse, searchTerm]);
-
-  const averageScore =
-    filteredRecords.length > 0
-      ? Math.round(
-          filteredRecords.reduce((sum, record) => {
-            return (
-              sum +
-              calculateTotal(
-                record.assignmentScore,
-                record.midtermScore,
-                record.finalScore
-              )
-            );
-          }, 0) / filteredRecords.length
-        )
-      : 0;
-
-  const passedCount = filteredRecords.filter((record) => {
-    const total = calculateTotal(
-      record.assignmentScore,
-      record.midtermScore,
-      record.finalScore
-    );
-
-    return total >= 50;
-  }).length;
-
-  const failedCount = filteredRecords.length - passedCount;
-
-  function updateScore(studentId, field, value) {
-    const numericValue = value === "" ? 0 : Number(value);
-
-    if (numericValue < 0 || numericValue > 100) return;
-
-    setGradeRecords((prev) =>
-      prev.map((record) =>
-        record.id === studentId
-          ? {
-              ...record,
-              [field]: numericValue,
+                const rows = response.data || [];
+                setCourses(rows);
+                setSelectedCourse((current) =>
+                    rows.some((course) => String(course.course_id) === current)
+                        ? current
+                        : String(rows[0]?.course_id ?? "")
+                );
+                if (!rows.length) {
+                    setStudents([]);
+                    setDrafts({});
+                    setSavedDrafts({});
+                    setPersistedEnrollmentIds(new Set());
+                }
+            } catch (requestError) {
+                if (!cancelled) {
+                    setCourses([]);
+                    setError(requestError.response?.data?.message || "Failed to load your courses.");
+                }
+            } finally {
+                if (!cancelled) setLoadingCourses(false);
             }
-          : record
-      )
+        }
+
+        loadCourses();
+        return () => { cancelled = true; };
+    }, [refreshKey]);
+
+    useEffect(() => {
+        if (!selectedCourse) return undefined;
+        let cancelled = false;
+
+        async function loadStudents() {
+            try {
+                setLoadingStudents(true);
+                setError("");
+                const response = await getTeacherCourseStudents(selectedCourse);
+                if (cancelled) return;
+
+                const rows = response.data || [];
+                const nextDrafts = Object.fromEntries(
+                    rows.map((student) => [student.enrollment_id, draftFor(student)])
+                );
+                setStudents(rows);
+                setDrafts(nextDrafts);
+                setSavedDrafts(nextDrafts);
+                setPersistedEnrollmentIds(new Set(
+                    rows.filter((student) => student.grade_id).map((student) => student.enrollment_id)
+                ));
+            } catch (requestError) {
+                if (!cancelled) {
+                    setStudents([]);
+                    setDrafts({});
+                    setSavedDrafts({});
+                    setPersistedEnrollmentIds(new Set());
+                    setError(
+                        requestError.response?.data?.message || "Failed to load enrolled students."
+                    );
+                }
+            } finally {
+                if (!cancelled) setLoadingStudents(false);
+            }
+        }
+
+        loadStudents();
+        return () => { cancelled = true; };
+    }, [refreshKey, selectedCourse]);
+
+    const visibleStudents = useMemo(() => {
+        const keyword = search.trim().toLowerCase();
+        return students.filter((student) =>
+            !keyword || [student.student_code, student.full_name, student.gender]
+                .some((value) => String(value || "").toLowerCase().includes(keyword))
+        );
+    }, [search, students]);
+
+    function updateDraft(enrollmentId, field, value) {
+        setDrafts((current) => ({
+            ...current,
+            [enrollmentId]: { ...current[enrollmentId], [field]: value },
+        }));
+        setError("");
+        setMessage("");
+    }
+
+    function payloadFor(student) {
+        const draft = drafts[student.enrollment_id];
+        const payload = { enrollment_id: student.enrollment_id };
+
+        for (const config of scoreFields) {
+            const rawValue = draft?.[config.field];
+            const score = Number(rawValue);
+            if (
+                rawValue === "" ||
+                !Number.isFinite(score) ||
+                score < 0 ||
+                score > config.max
+            ) {
+                return {
+                    error: `${config.label} score for ${student.student_code} must be between 0 and ${config.max}.`,
+                };
+            }
+            payload[config.field] = score;
+        }
+
+        payload.remark = draft.remark.trim() || null;
+        return payload;
+    }
+
+    function rowChanged(student) {
+        return !draftsMatch(
+            drafts[student.enrollment_id],
+            savedDrafts[student.enrollment_id]
+        );
+    }
+
+    async function saveOne(student) {
+        const payload = payloadFor(student);
+        if (payload.error) {
+            setError(payload.error);
+            return;
+        }
+
+        try {
+            setSaving(true);
+            setError("");
+            setMessage("");
+            await saveTeacherGrade(payload);
+            setSavedDrafts((current) => ({
+                ...current,
+                [student.enrollment_id]: { ...drafts[student.enrollment_id] },
+            }));
+            setPersistedEnrollmentIds((current) => new Set(current).add(student.enrollment_id));
+            setMessage(`Grade saved for ${student.student_code}.`);
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || "Failed to save grade.");
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function saveAll() {
+        const changedStudents = students.filter(rowChanged);
+        if (!changedStudents.length) {
+            setError("No grade changes to save.");
+            return;
+        }
+
+        const grades = [];
+        for (const student of changedStudents) {
+            const payload = payloadFor(student);
+            if (payload.error) {
+                setError(payload.error);
+                return;
+            }
+            grades.push(payload);
+        }
+
+        try {
+            setSaving(true);
+            setError("");
+            setMessage("");
+            await saveTeacherGradesBulk(grades);
+            setSavedDrafts(Object.fromEntries(
+                students.map((student) => [
+                    student.enrollment_id,
+                    { ...drafts[student.enrollment_id] },
+                ])
+            ));
+            setPersistedEnrollmentIds((current) => {
+                const next = new Set(current);
+                grades.forEach((grade) => next.add(grade.enrollment_id));
+                return next;
+            });
+            setMessage(`Saved grades for ${grades.length} student(s).`);
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || "Failed to save grades.");
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    function exportGrades() {
+        exportToCsv("teacher-grades.csv", visibleStudents.map((student) => {
+            const draft = drafts[student.enrollment_id] || {};
+            const result = calculateResult(draft);
+            return { ...student, ...draft, total_score: result.total ?? "", grade_letter: result.letter };
+        }), [
+            { header: "Student Code", key: "student_code" },
+            { header: "Student Name", key: "full_name" },
+            { header: "Gender", key: "gender" },
+            { header: "Assignment /30", key: "assignment_score" },
+            { header: "Midterm /30", key: "midterm_score" },
+            { header: "Final /40", key: "final_score" },
+            { header: "Total /100", key: "total_score" },
+            { header: "Grade", key: "grade_letter" },
+            { header: "Remark", key: "remark" },
+        ]);
+    }
+
+    const changedCount = students.filter(rowChanged).length;
+    const selectedCourseData = courses.find(
+        (course) => String(course.course_id) === selectedCourse
     );
-  }
 
-  function handleSaveGrades() {
-    window.alert("Grades were saved for this browser session. Database records require enrollment IDs from the live API.");
-  }
-
-  return (
-    <>
-      <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--sms-gold)]">
-            Teacher
-          </p>
-
-          <h1 className="mt-2 text-3xl font-bold text-[var(--sms-ink)]">
-            Grade Management
-          </h1>
-
-          <p className="mt-2 max-w-2xl text-[var(--sms-muted)]">
-            Enter assignment, midterm, and final scores. The system will
-            automatically calculate total score and grade letter.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={handleSaveGrades}
-            className="sms-btn-primary"
-          >
-            <Save className="mr-2 h-4 w-4" />
-            Save Grades
-          </Button>
-
-                    <Button type="button" variant="outline" onClick={() => window.print()}>
-            <FileText className="mr-2 h-4 w-4" />
-            PDF
-          </Button>
-
-                    <Button type="button" variant="outline" onClick={() => exportVisibleTableToCsv("teacher-grades.csv")}>
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Excel
-          </Button>
-        </div>
-      </div>
-
-      <section className="mb-8 grid gap-4 md:grid-cols-4">
-        <div className="sms-card p-5">
-          <p className="text-3xl font-bold text-[var(--sms-ink)]">
-            {filteredRecords.length}
-          </p>
-          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--sms-muted)]">
-            Students
-          </p>
-        </div>
-
-        <div className="sms-card p-5">
-          <p className="text-3xl font-bold text-[var(--sms-info)]">{averageScore}</p>
-          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--sms-muted)]">
-            Average Score
-          </p>
-        </div>
-
-        <div className="sms-card p-5">
-          <p className="text-3xl font-bold text-[var(--sms-success)]">{passedCount}</p>
-          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--sms-muted)]">
-            Passed
-          </p>
-        </div>
-
-        <div className="sms-card p-5">
-          <p className="text-3xl font-bold text-[var(--sms-danger)]">{failedCount}</p>
-          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--sms-muted)]">
-            Failed
-          </p>
-        </div>
-      </section>
-
-      <section className="sms-input-panel mb-8 p-5">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Course</Label>
-            <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select course" />
-              </SelectTrigger>
-
-              <SelectContent>
-                {teacherCoursesData.map((course) => (
-                  <SelectItem key={course.id} value={course.courseCode}>
-                    {course.courseCode} — {course.courseName}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Search Student</Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-[var(--sms-muted)]" />
-              <Input
-                placeholder="Search name or ID..."
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                className="pl-9"
-              />
+    return <>
+        <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--sms-gold)]">Teacher</p>
+                <h1 className="mt-2 text-3xl font-bold text-[var(--sms-ink)]">Grades</h1>
+                <p className="mt-2 text-[var(--sms-muted)]">Record assignment, midterm, and final scores for your enrolled students.</p>
             </div>
-          </div>
+            <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={() => setRefreshKey((value) => value + 1)} disabled={loadingCourses || loadingStudents || saving}>
+                    <RefreshCcw className={`mr-2 h-4 w-4 ${loadingCourses || loadingStudents ? "animate-spin" : ""}`} />Refresh
+                </Button>
+                <Button type="button" variant="outline" onClick={exportGrades} disabled={!visibleStudents.length}>
+                    <FileSpreadsheet className="mr-2 h-4 w-4" />Excel
+                </Button>
+            </div>
         </div>
 
-        <div className="mt-4 rounded-md border border-[var(--sms-line)] bg-[var(--sms-paper)] p-4 text-sm text-[var(--sms-muted)]">
-          Selected course:{" "}
-          <strong className="text-[var(--sms-ink)]">
-            {selectedCourseInfo?.courseName}
-          </strong>
-        </div>
-      </section>
+        {error && <div role="alert" className="mb-5 rounded-md border border-[var(--sms-danger-border)] bg-[var(--sms-danger-bg)] p-4 text-sm text-[var(--sms-danger)]">{error}</div>}
+        {message && <div className="mb-5 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{message}</div>}
 
-      <section className="sms-card overflow-hidden">
-        <div className="sms-section-header px-5 py-4">
-          <h2 className="font-semibold text-[var(--sms-ink)]">
-            Grade Records
-          </h2>
-          <p className="text-sm text-[var(--sms-muted)]">
-            {filteredRecords.length} student(s) found
-          </p>
-        </div>
+        <section className="sms-input-panel mb-6 grid gap-4 p-5 md:grid-cols-2">
+            <div className="space-y-2">
+                <Label>Course</Label>
+                <Select value={selectedCourse || undefined} onValueChange={(value) => { setSelectedCourse(value); setMessage(""); setError(""); }} disabled={loadingCourses || !courses.length}>
+                    <SelectTrigger><SelectValue placeholder="Select course" /></SelectTrigger>
+                    <SelectContent>{courses.map((course) => <SelectItem key={course.course_id} value={String(course.course_id)}>{course.course_code} - {course.course_name}</SelectItem>)}</SelectContent>
+                </Select>
+                {selectedCourseData && <p className="text-xs text-[var(--sms-muted)]">{selectedCourseData.semester || "No semester"} · {selectedCourseData.student_count} active student(s)</p>}
+            </div>
+            <div className="space-y-2">
+                <Label>Search</Label>
+                <div className="relative"><Search className="absolute left-3 top-2.5 h-4 w-4 text-[var(--sms-muted)]" /><Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Student code, name, or gender" /></div>
+            </div>
+        </section>
 
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Student ID</TableHead>
-                <TableHead>Student Name</TableHead>
-                <TableHead>Assignment /20</TableHead>
-                <TableHead>Midterm /30</TableHead>
-                <TableHead>Final /50</TableHead>
-                <TableHead>Total /100</TableHead>
-                <TableHead>Grade</TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {filteredRecords.length > 0 ? (
-                filteredRecords.map((record) => {
-                  const totalScore = calculateTotal(
-                    record.assignmentScore,
-                    record.midtermScore,
-                    record.finalScore
-                  );
-
-                  const gradeLetter = calculateGradeLetter(totalScore);
-
-                  return (
-                    <TableRow key={record.id}>
-                      <TableCell className="font-mono text-xs">
-                        {record.studentCode}
-                      </TableCell>
-
-                      <TableCell className="font-medium">
-                        {record.studentName}
-                        <p className="text-xs text-[var(--sms-muted)]">
-                          {record.courseName}
-                        </p>
-                      </TableCell>
-
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="20"
-                          value={record.assignmentScore}
-                          onChange={(event) =>
-                            updateScore(
-                              record.id,
-                              "assignmentScore",
-                              event.target.value
-                            )
-                          }
-                          className="w-24"
-                        />
-                      </TableCell>
-
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="30"
-                          value={record.midtermScore}
-                          onChange={(event) =>
-                            updateScore(
-                              record.id,
-                              "midtermScore",
-                              event.target.value
-                            )
-                          }
-                          className="w-24"
-                        />
-                      </TableCell>
-
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="50"
-                          value={record.finalScore}
-                          onChange={(event) =>
-                            updateScore(
-                              record.id,
-                              "finalScore",
-                              event.target.value
-                            )
-                          }
-                          className="w-24"
-                        />
-                      </TableCell>
-
-                      <TableCell className="font-bold text-[var(--sms-ink)]">
-                        {totalScore}
-                      </TableCell>
-
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={getGradeBadgeClass(gradeLetter)}
-                        >
-                          {gradeLetter}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan="7"
-                    className="py-12 text-center text-[var(--sms-muted)]"
-                  >
-                    No grade records found for this course.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </section>
-    </>
-  );
+        <section className="sms-card overflow-hidden">
+            <div className="sms-section-header flex flex-col justify-between gap-3 px-5 py-4 sm:flex-row sm:items-center">
+                <div><h2 className="font-semibold text-[var(--sms-ink)]">Enrolled Students</h2><p className="text-sm text-[var(--sms-muted)]">{visibleStudents.length} student(s) · {changedCount} unsaved</p></div>
+                <Button type="button" onClick={saveAll} disabled={saving || !changedCount}>
+                    {saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}{saving ? "Saving…" : "Save All"}
+                </Button>
+            </div>
+            <div className="overflow-x-auto">
+                <Table>
+                    <TableHeader><TableRow><TableHead>Student Code</TableHead><TableHead>Student Name</TableHead><TableHead>Gender</TableHead><TableHead>Assignment /30</TableHead><TableHead>Midterm /30</TableHead><TableHead>Final /40</TableHead><TableHead>Total /100</TableHead><TableHead>Grade</TableHead><TableHead>Remark</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                        {(loadingCourses || loadingStudents) ? <TableRow><TableCell colSpan={10} className="py-12 text-center text-[var(--sms-muted)]"><LoaderCircle className="mx-auto mb-2 h-5 w-5 animate-spin" />Loading grades…</TableCell></TableRow>
+                            : !courses.length ? <TableRow><TableCell colSpan={10} className="py-12 text-center text-[var(--sms-muted)]">No courses assigned to you.</TableCell></TableRow>
+                                : visibleStudents.length ? visibleStudents.map((student) => {
+                                    const draft = drafts[student.enrollment_id] || {};
+                                    const result = calculateResult(draft);
+                                    const canSave = rowChanged(student) || !persistedEnrollmentIds.has(student.enrollment_id);
+                                    return <TableRow key={student.enrollment_id}>
+                                        <TableCell className="font-mono text-xs">{student.student_code}</TableCell>
+                                        <TableCell className="min-w-48 font-medium">{student.full_name}</TableCell>
+                                        <TableCell className="capitalize">{student.gender || "—"}</TableCell>
+                                        {scoreFields.map((config) => <TableCell key={config.field}><Input type="number" min="0" max={config.max} step="0.01" value={draft[config.field] ?? ""} onChange={(event) => updateDraft(student.enrollment_id, config.field, event.target.value)} className="w-28" aria-label={`${config.label} score for ${student.student_code}`} /></TableCell>)}
+                                        <TableCell className="font-semibold">{result.total ?? "—"}</TableCell>
+                                        <TableCell><Badge variant="outline" className={gradeBadgeClass(result.letter)}>{result.letter || "—"}</Badge></TableCell>
+                                        <TableCell><Input value={draft.remark || ""} onChange={(event) => updateDraft(student.enrollment_id, "remark", event.target.value)} placeholder="Optional remark" className="min-w-52" aria-label={`Remark for ${student.student_code}`} /></TableCell>
+                                        <TableCell className="text-right"><Button type="button" variant="outline" size="sm" onClick={() => saveOne(student)} disabled={saving || !canSave}><Save className="mr-1 h-3.5 w-3.5" />Save</Button></TableCell>
+                                    </TableRow>;
+                                }) : <TableRow><TableCell colSpan={10} className="py-12 text-center text-[var(--sms-muted)]">No enrolled students found for this course.</TableCell></TableRow>}
+                    </TableBody>
+                </Table>
+            </div>
+        </section>
+    </>;
 }
 
 export default TeacherGrades;

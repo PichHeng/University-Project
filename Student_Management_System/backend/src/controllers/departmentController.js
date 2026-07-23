@@ -16,7 +16,7 @@ export async function getDepartments(req, res) {
       LEFT JOIN students s ON d.department_id = s.department_id
       LEFT JOIN teachers t ON d.department_id = t.department_id
       GROUP BY d.department_id
-      ORDER BY d.department_id DESC`
+      ORDER BY d.department_code ASC`
         );
 
         res.json({
@@ -160,5 +160,57 @@ export async function deleteDepartment(req, res) {
             message: "Failed to delete department",
             error: error.message,
         });
+    }
+}
+
+export async function getDepartmentDetails(req, res) {
+    try {
+        const { id } = req.params;
+        const [departments] = await db.query(
+            `SELECT department_id AS id, department_code AS departmentCode,
+                    department_name AS departmentName, description,
+                    created_at AS createdAt, updated_at AS updatedAt
+             FROM departments WHERE department_id = ? LIMIT 1`,
+            [id]
+        );
+
+        if (!departments.length) {
+            return res.status(404).json({ success: false, message: "Department not found." });
+        }
+
+        const [students] = await db.query(
+            `SELECT student_id AS id, student_code AS studentCode,
+                    first_name AS firstName, last_name AS lastName,
+                    CONCAT(first_name, ' ', last_name) AS fullName,
+                    year_level AS yearLevel, email, status
+             FROM students WHERE department_id = ?
+             ORDER BY student_code ASC`,
+            [id]
+        );
+        const [teachers] = await db.query(
+            `SELECT teacher_id AS id, teacher_code AS teacherCode,
+                    first_name AS firstName, last_name AS lastName,
+                    CONCAT(first_name, ' ', last_name) AS fullName,
+                    email, phone
+             FROM teachers WHERE department_id = ?
+             ORDER BY teacher_code ASC`,
+            [id]
+        );
+
+        return res.json({
+            success: true,
+            data: {
+                department: { ...departments[0], description: departments[0].description || "" },
+                students,
+                teachers,
+                totalStudents: students.length,
+                totalTeachers: teachers.length,
+                homeroomTeacher: null,
+                homeroomSupported: false,
+            },
+        });
+    } catch (error) {
+        console.error("Get department details error:", error);
+        return res.status(500).json({ success: false, message: "Failed to fetch department details." });
     }
 }

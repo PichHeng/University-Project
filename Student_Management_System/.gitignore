@@ -1,7 +1,39 @@
+# node_modules/
+# dist/
+# .env
+
+# .vscode/settings.json
+
+# *.log   
+
+# Dependencies
 node_modules/
-dist/
+**/node_modules/
+
+# Environment files
 .env
+.env.*
+**/.env
+**/.env.*
 
-.vscode/settings.json
+# Keep examples
+!.env.example
+!**/.env.example
 
-*.log   
+# Build output
+dist/
+**/dist/
+build/
+**/build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Runtime assignment uploads
+backend/uploads/
+uploads/

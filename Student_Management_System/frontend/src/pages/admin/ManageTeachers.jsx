@@ -1,7 +1,6 @@
 // import { useMemo, useState } from "react";
 // import { Edit, Plus, Search, Trash2 } from "lucide-react";
 
-// import { teachersData } from "@/data/mockData";
 
 // import { Button } from "@/components/ui/button";
 // import { Badge } from "@/components/ui/badge";
@@ -421,14 +420,16 @@
 
 
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { exportVisibleTableToCsv } from "@/lib/exportCsv";
-import { Edit, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
+import { BookOpen, Edit, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
 
 import {
     createTeacher,
     deleteTeacher,
     getTeachers,
+    getTeacherClasses,
+    getNextTeacherCode,
     updateTeacher,
 } from "@/services/teacherService";
 
@@ -489,7 +490,24 @@ function ManageTeachers() {
 
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoadingCode, setIsLoadingCode] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const [classDetails, setClassDetails] = useState(null);
+    const [detailsLoadingId, setDetailsLoadingId] = useState(null);
+    const nextCodeRequestRef = useRef(0);
+
+    async function openClasses(teacher) {
+        try {
+            setDetailsLoadingId(teacher.id);
+            setErrorMessage("");
+            const response = await getTeacherClasses(teacher.id);
+            setClassDetails(response.data);
+        } catch (error) {
+            setErrorMessage(error.response?.data?.message || "Failed to load teaching classes.");
+        } finally {
+            setDetailsLoadingId(null);
+        }
+    }
 
     async function loadTeachers() {
         try {
@@ -535,14 +553,37 @@ function ManageTeachers() {
         });
     }, [teachers, searchTerm]);
 
-    function openAddDialog() {
+    async function openAddDialog() {
+        const requestId = ++nextCodeRequestRef.current;
         setEditingTeacher(null);
         setFormData(emptyForm);
         setErrorMessage("");
         setIsDialogOpen(true);
+        setIsLoadingCode(true);
+
+        try {
+            const response = await getNextTeacherCode();
+            const nextCode = response.data?.nextCode;
+
+            if (!nextCode) throw new Error("The next Teacher ID was not returned.");
+            if (requestId !== nextCodeRequestRef.current) return;
+
+            setFormData((current) => ({ ...current, teacherCode: nextCode }));
+        } catch (error) {
+            if (requestId !== nextCodeRequestRef.current) return;
+            setErrorMessage(
+                error.response?.data?.message ||
+                    error.message ||
+                    "Failed to generate the next Teacher ID."
+            );
+        } finally {
+            if (requestId === nextCodeRequestRef.current) setIsLoadingCode(false);
+        }
     }
 
     function openEditDialog(teacher) {
+        nextCodeRequestRef.current += 1;
+        setIsLoadingCode(false);
         setEditingTeacher(teacher);
 
         setFormData({
@@ -559,6 +600,14 @@ function ManageTeachers() {
 
         setErrorMessage("");
         setIsDialogOpen(true);
+    }
+
+    function handleDialogOpenChange(open) {
+        if (!open) {
+            nextCodeRequestRef.current += 1;
+            setIsLoadingCode(false);
+        }
+        setIsDialogOpen(open);
     }
 
     function handleInputChange(event) {
@@ -587,11 +636,13 @@ function ManageTeachers() {
             if (editingTeacher) {
                 await updateTeacher(editingTeacher.id, formData);
             } else {
-                const response = await createTeacher(formData);
+                const createPayload = { ...formData };
+                delete createPayload.teacherCode;
+                const response = await createTeacher(createPayload);
 
                 if (response.data?.username && response.data?.defaultPassword) {
                     alert(
-                        `Teacher created successfully.\n\nLogin username: ${response.data.username}\nDefault password: ${response.data.defaultPassword}`
+                        `Teacher created successfully.\n\nTeacher ID: ${response.data.teacherCode}\nLogin username: ${response.data.username}\nDefault password: ${response.data.defaultPassword}`
                     );
                 }
             }
@@ -767,6 +818,10 @@ function ManageTeachers() {
 
                                         <TableCell>
                                             <div className="flex justify-end gap-2">
+                                                <Button variant="outline" size="sm" onClick={() => openClasses(teacher)} disabled={detailsLoadingId === teacher.id}>
+                                                    <BookOpen className="mr-2 h-4 w-4" />
+                                                    {detailsLoadingId === teacher.id ? "Loading…" : "View Classes"}
+                                                </Button>
                                                 <Button
                                                     variant="outline"
                                                     size="icon"
@@ -801,7 +856,7 @@ function ManageTeachers() {
                 </div>
             </section>
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>
@@ -822,10 +877,14 @@ function ManageTeachers() {
                                 <Input
                                     name="teacherCode"
                                     value={formData.teacherCode}
-                                    onChange={handleInputChange}
-                                    placeholder="TCH-2002"
+                                    readOnly
+                                    placeholder={isLoadingCode ? "Generating..." : "Teacher ID unavailable"}
+                                    className="cursor-not-allowed bg-muted/50 font-mono"
                                     required
                                 />
+                                <p className="text-xs text-[var(--sms-muted)]">
+                                    {isLoadingCode ? "Generating Teacher ID..." : "Generated automatically"}
+                                </p>
                             </div>
 
                             <div className="space-y-2">
@@ -952,7 +1011,10 @@ function ManageTeachers() {
 
                             <Button
                                 type="submit"
-                                disabled={isSaving}
+                                disabled={
+                                    isSaving ||
+                                    (!editingTeacher && (isLoadingCode || !formData.teacherCode))
+                                }
                                 className="sms-btn-primary"
                             >
                                 {isSaving
@@ -965,8 +1027,22 @@ function ManageTeachers() {
                     </form>
                 </DialogContent>
             </Dialog>
+            <Dialog open={Boolean(classDetails)} onOpenChange={(open) => !open && setClassDetails(null)}>
+                <DialogContent className="max-w-5xl">
+                    <DialogHeader><DialogTitle>Teaching Classes</DialogTitle></DialogHeader>
+                    {classDetails && <div className="space-y-6"><div className="grid gap-3 rounded-md border border-[var(--sms-line)] bg-[var(--sms-card-soft)] p-4 sm:grid-cols-2 lg:grid-cols-4"><ClassInfo label="Teacher Code" value={classDetails.teacher.teacherCode} /><ClassInfo label="Teacher" value={classDetails.teacher.fullName} /><ClassInfo label="Email" value={classDetails.teacher.email || "—"} /><ClassInfo label="Phone" value={classDetails.teacher.phone || "—"} /></div><ClassTable title="Current Classes" courses={classDetails.currentClasses} empty="No current active classes." /><ClassTable title="Past Classes" courses={classDetails.pastClasses} empty="No inactive or previously taught classes." /></div>}
+                </DialogContent>
+            </Dialog>
         </>
     );
+}
+
+function ClassInfo({ label, value }) {
+    return <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-[var(--sms-muted)]">{label}</p><p className="mt-1 break-words font-medium text-[var(--sms-ink)]">{value}</p></div>;
+}
+
+function ClassTable({ title, courses, empty }) {
+    return <section><h3 className="sms-section-header mb-2 rounded-md px-4 py-3 font-semibold text-[var(--sms-ink)]">{title}</h3><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Course</TableHead><TableHead>Department</TableHead><TableHead>Credit</TableHead><TableHead>Semester</TableHead><TableHead>Students</TableHead><TableHead>Status</TableHead></TableRow></TableHeader><TableBody>{courses.length ? courses.map((course) => <TableRow key={course.id}><TableCell><p className="font-medium">{course.courseName}</p><p className="font-mono text-xs text-[var(--sms-muted)]">{course.courseCode}</p></TableCell><TableCell className="max-w-56 whitespace-normal">{course.department}</TableCell><TableCell>{course.credit}</TableCell><TableCell>{course.semester || "—"}</TableCell><TableCell>{course.enrolledStudentCount}</TableCell><TableCell><Badge variant="outline" className={course.status === "Active" ? "sms-badge-active" : "sms-badge-inactive"}>{course.status}</Badge></TableCell></TableRow>) : <TableRow><TableCell colSpan={6} className="py-8 text-center text-[var(--sms-muted)]">{empty}</TableCell></TableRow>}</TableBody></Table></div></section>;
 }
 
 export default ManageTeachers;

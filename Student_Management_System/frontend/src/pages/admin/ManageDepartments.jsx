@@ -1,7 +1,6 @@
 // import { useMemo, useState } from "react";
 // import { Edit, Plus, Search, Trash2 } from "lucide-react";
 
-// import { departmentsData } from "@/data/mockData";
 
 // import { Button } from "@/components/ui/button";
 // import { Badge } from "@/components/ui/badge";
@@ -409,12 +408,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { exportVisibleTableToCsv } from "@/lib/exportCsv";
-import { Edit, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
+import { Edit, Eye, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
 
 import {
     createDepartment,
     deleteDepartment,
     getDepartments,
+    getDepartmentDetails,
     updateDepartment,
 } from "@/services/departmentService";
 
@@ -456,6 +456,21 @@ function ManageDepartments() {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const [details, setDetails] = useState(null);
+    const [detailsLoading, setDetailsLoading] = useState(false);
+
+    async function openDetails(department) {
+        try {
+            setDetailsLoading(true);
+            setErrorMessage("");
+            const response = await getDepartmentDetails(department.id);
+            setDetails(response.data);
+        } catch (error) {
+            setErrorMessage(error.response?.data?.message || "Failed to load department details.");
+        } finally {
+            setDetailsLoading(false);
+        }
+    }
 
     async function loadDepartments() {
         try {
@@ -649,15 +664,23 @@ function ManageDepartments() {
                 </div>
 
                 <div className="overflow-x-auto">
-                    <Table>
+                    <Table className="min-w-[1100px] table-fixed">
+                        <colgroup>
+                            <col className="w-20" />
+                            <col className="w-72" />
+                            <col className="w-[480px]" />
+                            <col className="w-24" />
+                            <col className="w-24" />
+                            <col className="w-32" />
+                        </colgroup>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Code</TableHead>
-                                <TableHead>Department Name</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead>Students</TableHead>
-                                <TableHead>Teachers</TableHead>
-                                <TableHead className="text-right">Action</TableHead>
+                                <TableHead className="w-20">Code</TableHead>
+                                <TableHead className="w-72">Department Name</TableHead>
+                                <TableHead className="min-w-[420px] max-w-[520px]">Description</TableHead>
+                                <TableHead className="w-24 text-center">Students</TableHead>
+                                <TableHead className="w-24 text-center">Teachers</TableHead>
+                                <TableHead className="w-32 text-center">Action</TableHead>
                             </TableRow>
                         </TableHeader>
 
@@ -674,27 +697,36 @@ function ManageDepartments() {
                             ) : filteredDepartments.length > 0 ? (
                                 filteredDepartments.map((department) => (
                                     <TableRow key={department.id}>
-                                        <TableCell className="font-mono text-xs font-semibold">
+                                        <TableCell className="w-20 font-mono text-xs font-semibold">
                                             {department.departmentCode}
                                         </TableCell>
 
-                                        <TableCell className="font-medium text-[var(--sms-ink)]">
-                                            {department.departmentName}
+                                        <TableCell className="w-72 whitespace-normal break-words font-medium text-[var(--sms-ink)]">
+                                            <p className="line-clamp-2">{department.departmentName}</p>
                                         </TableCell>
 
-                                        <TableCell className="max-w-md text-sm text-[var(--sms-muted)]">
-                                            {department.description || "No description"}
+                                        <TableCell className="min-w-[420px] max-w-[520px] whitespace-normal break-words text-sm leading-relaxed text-[var(--sms-muted)]">
+                                            <p className="line-clamp-2">
+                                                {department.description || "No description"}
+                                            </p>
                                         </TableCell>
 
-                                        <TableCell>{department.totalStudents || 0}</TableCell>
+                                        <TableCell className="w-24 text-center font-medium">
+                                            {department.student_count ?? department.totalStudents ?? 0}
+                                        </TableCell>
 
-                                        <TableCell>{department.totalTeachers || 0}</TableCell>
+                                        <TableCell className="w-24 text-center font-medium">
+                                            {department.teacher_count ?? department.totalTeachers ?? 0}
+                                        </TableCell>
 
-                                        <TableCell>
-                                            <div className="flex justify-end gap-2">
+                                        <TableCell className="w-32">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <Button variant="outline" size="icon-sm" aria-label={`View ${department.departmentName}`} onClick={() => openDetails(department)} disabled={detailsLoading}>
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
                                                 <Button
                                                     variant="outline"
-                                                    size="icon"
+                                                    size="icon-sm"
                                                     onClick={() => openEditDialog(department)}
                                                 >
                                                     <Edit className="h-4 w-4" />
@@ -702,7 +734,7 @@ function ManageDepartments() {
 
                                                 <Button
                                                     variant="outline"
-                                                    size="icon"
+                                                    size="icon-sm"
                                                     onClick={() => handleDelete(department)}
                                                 >
                                                     <Trash2 className="h-4 w-4 text-[var(--sms-danger)]" />
@@ -797,6 +829,17 @@ function ManageDepartments() {
                             </Button>
                         </DialogFooter>
                     </form>
+                </DialogContent>
+            </Dialog>
+            <Dialog open={Boolean(details)} onOpenChange={(open) => !open && setDetails(null)}>
+                <DialogContent className="max-w-4xl">
+                    <DialogHeader><DialogTitle>Department Details</DialogTitle></DialogHeader>
+                    {details && <div className="space-y-5">
+                        <div className="rounded-md border border-[var(--sms-line)] bg-[var(--sms-card-soft)] p-4"><p className="font-mono text-xs text-[var(--sms-muted)]">{details.department.departmentCode}</p><h2 className="text-xl font-bold text-[var(--sms-ink)]">{details.department.departmentName}</h2><p className="mt-1 text-sm text-[var(--sms-muted)]">{details.department.description || "No description"}</p><p className="mt-3 text-sm">{details.totalStudents} students · {details.totalTeachers} teachers</p></div>
+                        <div><h3 className="mb-2 font-semibold text-[var(--sms-ink)]">Homeroom Teacher</h3><p className="rounded-md border border-[var(--sms-line)] p-3 text-sm text-[var(--sms-muted)]">No homeroom teacher configured. The current schema does not support this field.</p></div>
+                        <div><h3 className="mb-2 font-semibold text-[var(--sms-ink)]">Students</h3><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Code</TableHead><TableHead>Name</TableHead><TableHead>Year</TableHead><TableHead>Email</TableHead><TableHead>Status</TableHead></TableRow></TableHeader><TableBody>{details.students.length ? details.students.map((student) => <TableRow key={student.id}><TableCell className="font-mono text-xs">{student.studentCode}</TableCell><TableCell>{student.fullName}</TableCell><TableCell>{student.yearLevel || "—"}</TableCell><TableCell>{student.email || "—"}</TableCell><TableCell>{student.status}</TableCell></TableRow>) : <TableRow><TableCell colSpan={5} className="py-6 text-center text-[var(--sms-muted)]">No students in this department.</TableCell></TableRow>}</TableBody></Table></div></div>
+                        <div><h3 className="mb-2 font-semibold text-[var(--sms-ink)]">Department Teachers</h3><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Code</TableHead><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Phone</TableHead></TableRow></TableHeader><TableBody>{details.teachers.length ? details.teachers.map((teacher) => <TableRow key={teacher.id}><TableCell className="font-mono text-xs">{teacher.teacherCode}</TableCell><TableCell>{teacher.fullName}</TableCell><TableCell>{teacher.email || "—"}</TableCell><TableCell>{teacher.phone || "—"}</TableCell></TableRow>) : <TableRow><TableCell colSpan={4} className="py-6 text-center text-[var(--sms-muted)]">No teachers in this department.</TableCell></TableRow>}</TableBody></Table></div></div>
+                    </div>}
                 </DialogContent>
             </Dialog>
         </>

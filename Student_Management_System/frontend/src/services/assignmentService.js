@@ -19,3 +19,8 @@ export async function deleteAssignment(id) {
     const response = await api.delete(`/assignments/${id}`);
     return response.data;
 }
+
+export async function getMyStudentAssignments() {
+    const response = await api.get("/assignments/student/me");
+    return response.data;
+}

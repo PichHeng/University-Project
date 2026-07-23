@@ -1,7 +1,6 @@
 // import { useMemo, useState } from "react";
 // import { Edit, Plus, Search, Trash2 } from "lucide-react";
 
-// import { studentsData } from "@/data/mockData";
 
 // import { Button } from "@/components/ui/button";
 // import { Badge } from "@/components/ui/badge";
@@ -437,14 +436,16 @@
 
 // export default ManageStudents;
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { exportVisibleTableToCsv } from "@/lib/exportCsv";
-import { Edit, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
+import { Edit, GraduationCap, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
 
 import {
     createStudent,
     deleteStudent,
     getStudents,
+    getStudentGradesByYear,
+    getNextStudentCode,
     updateStudent,
 } from "@/services/studentService";
 
@@ -507,7 +508,24 @@ function ManageStudents() {
 
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoadingCode, setIsLoadingCode] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const [gradeDetails, setGradeDetails] = useState(null);
+    const [detailsLoadingId, setDetailsLoadingId] = useState(null);
+    const nextCodeRequestRef = useRef(0);
+
+    async function openGrades(student) {
+        try {
+            setDetailsLoadingId(student.id);
+            setErrorMessage("");
+            const response = await getStudentGradesByYear(student.id);
+            setGradeDetails(response.data);
+        } catch (error) {
+            setErrorMessage(error.response?.data?.message || "Failed to load student grades.");
+        } finally {
+            setDetailsLoadingId(null);
+        }
+    }
 
     async function loadStudents() {
         try {
@@ -553,14 +571,37 @@ function ManageStudents() {
         });
     }, [students, searchTerm]);
 
-    function openAddDialog() {
+    async function openAddDialog() {
+        const requestId = ++nextCodeRequestRef.current;
         setEditingStudent(null);
         setFormData(emptyForm);
         setErrorMessage("");
         setIsDialogOpen(true);
+        setIsLoadingCode(true);
+
+        try {
+            const response = await getNextStudentCode();
+            const nextCode = response.data?.nextCode;
+
+            if (!nextCode) throw new Error("The next Student ID was not returned.");
+            if (requestId !== nextCodeRequestRef.current) return;
+
+            setFormData((current) => ({ ...current, studentCode: nextCode }));
+        } catch (error) {
+            if (requestId !== nextCodeRequestRef.current) return;
+            setErrorMessage(
+                error.response?.data?.message ||
+                    error.message ||
+                    "Failed to generate the next Student ID."
+            );
+        } finally {
+            if (requestId === nextCodeRequestRef.current) setIsLoadingCode(false);
+        }
     }
 
     function openEditDialog(student) {
+        nextCodeRequestRef.current += 1;
+        setIsLoadingCode(false);
         setEditingStudent(student);
 
         setFormData({
@@ -577,6 +618,14 @@ function ManageStudents() {
 
         setErrorMessage("");
         setIsDialogOpen(true);
+    }
+
+    function handleDialogOpenChange(open) {
+        if (!open) {
+            nextCodeRequestRef.current += 1;
+            setIsLoadingCode(false);
+        }
+        setIsDialogOpen(open);
     }
 
     function handleInputChange(event) {
@@ -605,11 +654,13 @@ function ManageStudents() {
             if (editingStudent) {
                 await updateStudent(editingStudent.id, formData);
             } else {
-                const response = await createStudent(formData);
+                const createPayload = { ...formData };
+                delete createPayload.studentCode;
+                const response = await createStudent(createPayload);
 
                 if (response.data?.username && response.data?.defaultPassword) {
                     alert(
-                        `Student created successfully.\n\nLogin username: ${response.data.username}\nDefault password: ${response.data.defaultPassword}`
+                        `Student created successfully.\n\nStudent ID: ${response.data.studentCode}\nLogin username: ${response.data.username}\nDefault password: ${response.data.defaultPassword}`
                     );
                 }
             }
@@ -786,6 +837,10 @@ function ManageStudents() {
 
                                         <TableCell>
                                             <div className="flex justify-end gap-2">
+                                                <Button variant="outline" size="sm" onClick={() => openGrades(student)} disabled={detailsLoadingId === student.id}>
+                                                    <GraduationCap className="mr-2 h-4 w-4" />
+                                                    {detailsLoadingId === student.id ? "Loading…" : "View Grades"}
+                                                </Button>
                                                 <Button
                                                     variant="outline"
                                                     size="icon"
@@ -820,7 +875,7 @@ function ManageStudents() {
                 </div>
             </section>
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>
@@ -841,10 +896,14 @@ function ManageStudents() {
                                 <Input
                                     name="studentCode"
                                     value={formData.studentCode}
-                                    onChange={handleInputChange}
-                                    placeholder="STU-2002"
+                                    readOnly
+                                    placeholder={isLoadingCode ? "Generating..." : "Student ID unavailable"}
+                                    className="cursor-not-allowed bg-muted/50 font-mono"
                                     required
                                 />
+                                <p className="text-xs text-[var(--sms-muted)]">
+                                    {isLoadingCode ? "Generating Student ID..." : "Generated automatically"}
+                                </p>
                             </div>
 
                             <div className="space-y-2">
@@ -983,7 +1042,10 @@ function ManageStudents() {
 
                             <Button
                                 type="submit"
-                                disabled={isSaving}
+                                disabled={
+                                    isSaving ||
+                                    (!editingStudent && (isLoadingCode || !formData.studentCode))
+                                }
                                 className="sms-btn-primary"
                             >
                                 {isSaving
@@ -996,8 +1058,22 @@ function ManageStudents() {
                     </form>
                 </DialogContent>
             </Dialog>
+            <Dialog open={Boolean(gradeDetails)} onOpenChange={(open) => !open && setGradeDetails(null)}>
+                <DialogContent className="max-w-5xl">
+                    <DialogHeader><DialogTitle>Student Grades by Year</DialogTitle></DialogHeader>
+                    {gradeDetails && <div className="space-y-6">
+                        <div className="grid gap-3 rounded-md border border-[var(--sms-line)] bg-[var(--sms-card-soft)] p-4 sm:grid-cols-2 lg:grid-cols-5"><GradeInfo label="Student Code" value={gradeDetails.student.studentCode} /><GradeInfo label="Student" value={gradeDetails.student.fullName} /><GradeInfo label="Department" value={gradeDetails.student.department} /><GradeInfo label="Year Level" value={`Year ${gradeDetails.student.yearLevel || "—"}`} /><GradeInfo label="Advisor" value={gradeDetails.student.advisorName} /></div>
+                        {gradeDetails.gradesByYear.length ? gradeDetails.gradesByYear.map((group) => <section key={group.yearLevel}><h3 className="sms-section-header mb-2 rounded-md px-4 py-3 font-semibold text-[var(--sms-ink)]">Year {group.yearLevel}</h3><div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Course</TableHead><TableHead>Assignment</TableHead><TableHead>Midterm</TableHead><TableHead>Final</TableHead><TableHead>Total</TableHead><TableHead>Grade</TableHead><TableHead>Enrollment</TableHead></TableRow></TableHeader><TableBody>{group.grades.map((grade) => <TableRow key={`${group.yearLevel}-${grade.courseCode}`}><TableCell><p className="font-medium">{grade.courseName}</p><p className="font-mono text-xs text-[var(--sms-muted)]">{grade.courseCode}</p></TableCell><TableCell>{grade.assignmentScore}</TableCell><TableCell>{grade.midtermScore}</TableCell><TableCell>{grade.finalScore}</TableCell><TableCell className="font-semibold">{grade.totalScore}</TableCell><TableCell>{grade.gradeLetter}</TableCell><TableCell>{grade.enrollmentStatus || "—"}</TableCell></TableRow>)}</TableBody></Table></div></section>) : <div className="rounded-md border border-dashed border-[var(--sms-line)] py-12 text-center text-[var(--sms-muted)]">No grade records are available for this student.</div>}
+                        {!gradeDetails.student.advisorSupported && <p className="text-xs text-[var(--sms-muted)]">Advisor is shown as “Not assigned” because the current database schema has no advisor or homeroom-teacher field.</p>}
+                    </div>}
+                </DialogContent>
+            </Dialog>
         </>
     );
+}
+
+function GradeInfo({ label, value }) {
+    return <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-[var(--sms-muted)]">{label}</p><p className="mt-1 break-words font-medium text-[var(--sms-ink)]">{value}</p></div>;
 }
 
 export default ManageStudents;

@@ -1,7 +1,6 @@
 // import { useEffect, useState } from "react";
 // import { useNavigate } from "react-router-dom";
 // import { Eye, EyeOff, GraduationCap } from "lucide-react";
-// import { demoAccounts } from "@/data/mockData";
 
 // import { Button } from "@/components/ui/button";
 // import {
@@ -272,9 +271,11 @@ function LoginPage() {
     }
 
     return (
-        <main className="flex min-h-screen items-center justify-center bg-[var(--sms-page)] px-4 py-6 sm:py-10">
-            <div className="grid w-full max-w-5xl overflow-hidden rounded-2xl border border-[var(--sms-line)] bg-[var(--sms-card)] shadow-2xl shadow-slate-900/10 md:grid-cols-[1.05fr_0.95fr]">
-                <section className="hidden bg-[var(--sms-ink)] p-8 text-white md:flex md:flex-col md:justify-between lg:p-10">
+        <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top_left,var(--sms-gold-soft),transparent_32%),var(--sms-page)] px-4 py-8 sm:px-6 sm:py-10">
+            <div aria-hidden="true" className="absolute -right-24 -top-24 h-72 w-72 rounded-full border-[48px] border-white/50" />
+            <div className="relative grid w-full max-w-7xl overflow-hidden rounded-3xl border border-white/80 bg-[var(--sms-card)] shadow-[0_28px_80px_-28px_rgba(15,23,42,0.35)] lg:grid-cols-[1.15fr_1fr]">
+                <section className="relative hidden min-h-[650px] overflow-hidden bg-[var(--sms-ink)] p-14 text-white lg:flex lg:flex-col lg:justify-between">
+                    <div aria-hidden="true" className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full border-[44px] border-white/5" />
                     <div>
                         <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[var(--sms-gold)] text-[var(--sms-gold)]">
                             <GraduationCap aria-hidden="true" className="h-7 w-7" />
@@ -301,9 +302,10 @@ function LoginPage() {
                     </div>
                 </section>
 
-                <section className="p-6 sm:p-8 md:p-10">
-                    <Card className="border-0 bg-transparent shadow-none">
-                        <CardHeader className="px-0">
+                <section className="flex min-h-[650px] items-center justify-center p-6 sm:p-10 lg:p-14">
+                    <Card className="w-full max-w-xl rounded-2xl border border-[var(--sms-line)] bg-[var(--sms-card)]/80 p-8 shadow-sm sm:p-10">
+                        <CardHeader className="p-0">
+                            <div className="mb-2 flex items-center gap-3 lg:hidden"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--sms-ink)] text-[var(--sms-gold)]"><GraduationCap className="h-6 w-6" /></span><span className="font-semibold text-[var(--sms-ink)]">Academic Portal</span></div>
                             <CardTitle className="text-3xl font-bold text-[var(--sms-ink)]">
                                 Sign in
                             </CardTitle>
@@ -313,13 +315,13 @@ function LoginPage() {
                             </p>
                         </CardHeader>
 
-                        <CardContent className="px-0">
-                            <form onSubmit={handleSubmit} className="space-y-5">
+                        <CardContent className="p-0">
+                            <form onSubmit={handleSubmit} className="space-y-6">
                                 <div className="space-y-2">
                                     <Label htmlFor="username">Username</Label>
 
                                     <div className="relative">
-                                        <User className="absolute left-3 top-2.5 h-4 w-4 text-[var(--sms-muted)]" />
+                                        <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--sms-muted)]" />
 
                                         <Input
                                             id="username"
@@ -327,7 +329,7 @@ function LoginPage() {
                                             value={formData.username}
                                             onChange={handleInputChange}
                                             placeholder="admin"
-                                            className="pl-9"
+                                            className="h-12 rounded-xl pl-10 text-base"
                                             autoComplete="username"
                                             autoFocus
                                             aria-invalid={Boolean(errorMessage)}
@@ -340,7 +342,7 @@ function LoginPage() {
                                     <Label htmlFor="password">Password</Label>
 
                                     <div className="relative">
-                                        <Lock className="absolute left-3 top-2.5 h-4 w-4 text-[var(--sms-muted)]" />
+                                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--sms-muted)]" />
 
                                         <Input
                                             id="password"
@@ -349,12 +351,12 @@ function LoginPage() {
                                             value={formData.password}
                                             onChange={handleInputChange}
                                             placeholder="Admin@123"
-                                            className="px-9"
+                                            className="h-12 rounded-xl px-10 text-base"
                                             autoComplete="current-password"
                                             aria-invalid={Boolean(errorMessage)}
                                             required
                                         />
-                                        <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-[var(--sms-muted)] hover:text-[var(--sms-ink)]" aria-label={showPassword ? "Hide password" : "Show password"}>
+                                        <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-[var(--sms-muted)] hover:text-[var(--sms-ink)]" aria-label={showPassword ? "Hide password" : "Show password"}>
                                             {showPassword ? <EyeOff aria-hidden="true" className="h-4 w-4" /> : <Eye aria-hidden="true" className="h-4 w-4" />}
                                         </button>
                                     </div>
@@ -369,20 +371,20 @@ function LoginPage() {
                                 <Button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="sms-btn-primary w-full"
+                                    className="sms-btn-primary h-12 w-full rounded-xl text-base font-semibold shadow-lg shadow-amber-900/10"
                                 >
                                     <LogIn aria-hidden="true" className="mr-2 h-4 w-4" />
                                     {isLoading ? "Signing in..." : "Sign in"}
                                 </Button>
 
-                                <div className="rounded-lg border border-[var(--sms-line)] bg-[var(--sms-card-soft)] p-4 text-sm text-[var(--sms-muted)]">
+                                <div className="rounded-2xl border border-[var(--sms-line)] bg-[var(--sms-card-soft)] p-5 text-sm text-[var(--sms-muted)]">
                                     <p className="font-semibold text-[var(--sms-ink)]">
                                         Test accounts
                                     </p>
                                     <p className="mt-1 text-xs">Choose a role to fill the sign-in form.</p>
-                                    <div className="mt-3 grid grid-cols-3 gap-2">
+                                    <div className="mt-4 flex flex-wrap gap-2 sm:flex-nowrap">
                                         {testAccounts.map((account) => (
-                                            <Button key={account.role} type="button" variant="outline" size="sm" onClick={() => { setFormData({ username: account.username, password: account.password }); setErrorMessage(""); }} className="min-w-0 px-2">
+                                            <Button key={account.role} type="button" variant="outline" size="sm" onClick={() => { setFormData({ username: account.username, password: account.password }); setErrorMessage(""); }} className="min-w-28 flex-1 rounded-full px-3 hover:border-[var(--sms-gold)] hover:bg-[var(--sms-gold-soft)]">
                                                 <span className="truncate">{account.role}</span>
                                             </Button>
                                         ))}

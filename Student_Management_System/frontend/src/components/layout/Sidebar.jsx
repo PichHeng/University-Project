@@ -1,3 +1,5 @@
+
+import { UserRound } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import {
   BookOpen,
@@ -10,6 +12,7 @@ import {
   NotebookPen,
   User,
   UserCog,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
@@ -52,6 +55,11 @@ const adminLinks = [
     icon: UserCog,
   },
   {
+    label: "Admins",
+    path: "/admin/admins",
+    icon: UserCog,
+  },
+  {
     label: "Reports",
     path: "/admin/reports",
     icon: FileText,
@@ -89,6 +97,12 @@ const teacherLinks = [
     path: "/teacher/reports",
     icon: FileText,
   },
+  {
+    label: "My Information",
+    path: "/teacher/profile",
+    icon: UserRound,
+  }
+
 ];
 
 const studentLinks = [
@@ -118,6 +132,16 @@ const studentLinks = [
     icon: NotebookPen,
   },
   {
+    label: "Assignments",
+    path: "/student/assignments",
+    icon: ClipboardList,
+  },
+  {
+    label: "Enroll Courses",
+    path: "/student/enroll-courses",
+    icon: UserPlus,
+  },
+  {
     label: "Reports",
     path: "/student/reports",
     icon: FileText,
@@ -135,52 +159,52 @@ function Sidebar({ role, isOpen = false, onClose }) {
 
   return (
     <>
-    {isOpen && (
-      <button
-        type="button"
-        className="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-[1px] md:hidden"
-        onClick={onClose}
-        aria-label="Close navigation"
-      />
-    )}
-    <aside className={`fixed inset-y-0 left-0 z-50 flex w-[260px] shrink-0 flex-col border-r border-[var(--sms-ink-soft)] bg-[var(--sms-ink)] text-white shadow-2xl transition-transform duration-200 md:static md:z-20 md:h-full md:translate-x-0 md:shadow-none ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
-      <div className="border-b border-[var(--sms-ink-soft)] px-5 py-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--sms-gold)]">Navigation</p>
-            <p className="mt-1 text-sm text-slate-300">{role?.toUpperCase()} Panel</p>
+      {isOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-[1px] md:hidden"
+          onClick={onClose}
+          aria-label="Close navigation"
+        />
+      )}
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[260px] shrink-0 flex-col border-r border-[var(--sms-ink-soft)] bg-[var(--sms-ink)] text-white shadow-2xl transition-transform duration-200 md:static md:z-20 md:h-full md:translate-x-0 md:shadow-none ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="border-b border-[var(--sms-ink-soft)] px-5 py-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--sms-gold)]">Navigation</p>
+              <p className="mt-1 text-sm text-slate-300">{role?.toUpperCase()} Panel</p>
+            </div>
+            <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close navigation" className="text-slate-300 hover:bg-white/10 hover:text-white md:hidden">
+              <X aria-hidden="true" />
+            </Button>
           </div>
-          <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close navigation" className="text-slate-300 hover:bg-white/10 hover:text-white md:hidden">
-            <X aria-hidden="true" />
-          </Button>
         </div>
-      </div>
 
-      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain p-3">
-        {links.map((link) => {
-          const Icon = link.icon;
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain p-3">
+          {links.map((link) => {
+            const Icon = link.icon;
 
-          return (
-            <NavLink
-              key={link.path}
-              to={link.path}
-              onClick={onClose}
-              className={({ isActive }) =>
-                [
-                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition",
-                  isActive
-                    ? "bg-[var(--sms-gold)] text-[var(--sms-ink-dark)]"
-                    : "text-slate-300 hover:bg-[var(--sms-ink-soft)] hover:text-white",
-                ].join(" ")
-              }
-            >
-              <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-              <span className="truncate">{link.label}</span>
-            </NavLink>
-          );
-        })}
-      </nav>
-    </aside>
+            return (
+              <NavLink
+                key={link.path}
+                to={link.path}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  [
+                    "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition",
+                    isActive
+                      ? "bg-[var(--sms-gold)] text-[var(--sms-ink-dark)]"
+                      : "text-slate-300 hover:bg-[var(--sms-ink-soft)] hover:text-white",
+                  ].join(" ")
+                }
+              >
+                <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span className="truncate">{link.label}</span>
+              </NavLink>
+            );
+          })}
+        </nav>
+      </aside>
     </>
   );
 }

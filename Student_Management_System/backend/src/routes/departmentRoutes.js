@@ -8,6 +8,7 @@ import {
     createDepartment,
     updateDepartment,
     deleteDepartment,
+    getDepartmentDetails,
 } from "../controllers/departmentController.js";
 
 const router = express.Router();
@@ -16,6 +17,7 @@ router.use(protect);
 router.use(allowRoles("admin"));
 
 router.get("/", getDepartments);
+router.get("/:id/details", getDepartmentDetails);
 router.post("/", createDepartment);
 router.put("/:id", updateDepartment);
 router.delete("/:id", deleteDepartment);

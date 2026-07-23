@@ -1,7 +1,6 @@
 // import { useMemo, useState } from "react";
 // import { Edit, Plus, Search, Trash2 } from "lucide-react";
 
-// import { coursesData } from "@/data/mockData";
 
 // import { Button } from "@/components/ui/button";
 // import { Badge } from "@/components/ui/badge";
@@ -417,12 +416,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { exportVisibleTableToCsv } from "@/lib/exportCsv";
-import { Edit, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
+import { Edit, Eye, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
 
 import {
     createCourse,
     deleteCourse,
     getCourses,
+    getCourseStudents,
     updateCourse,
 } from "@/services/courseService";
 
@@ -437,6 +437,7 @@ import { Label } from "@/components/ui/label";
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogFooter,
@@ -489,6 +490,21 @@ function ManageCourses() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const [studentDetails, setStudentDetails] = useState(null);
+    const [detailsLoading, setDetailsLoading] = useState(false);
+
+    async function openStudents(course) {
+        try {
+            setDetailsLoading(true);
+            setErrorMessage("");
+            const response = await getCourseStudents(course.id);
+            setStudentDetails(response.data);
+        } catch (error) {
+            setErrorMessage(error.response?.data?.message || "Failed to load enrolled students.");
+        } finally {
+            setDetailsLoading(false);
+        }
+    }
 
     useEffect(() => {
         let ignore = false;
@@ -792,6 +808,9 @@ function ManageCourses() {
 
                                         <TableCell>
                                             <div className="flex justify-end gap-2">
+                                                <Button variant="outline" size="icon" aria-label={`View students in ${course.courseName}`} onClick={() => openStudents(course)} disabled={detailsLoading}>
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
                                                 <Button
                                                     variant="outline"
                                                     size="icon"
@@ -986,8 +1005,32 @@ function ManageCourses() {
                     </form>
                 </DialogContent>
             </Dialog>
+            <Dialog open={Boolean(studentDetails)} onOpenChange={(open) => !open && setStudentDetails(null)}>
+                <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg">Enrolled Students</DialogTitle>
+                        <DialogDescription className="whitespace-normal break-words">
+                            {studentDetails ? `${studentDetails.course.courseCode} — ${studentDetails.course.courseName}` : "Course enrollment details"}
+                        </DialogDescription>
+                    </DialogHeader>
+                    {studentDetails && <div className="space-y-5">
+                        <div className="grid gap-3 rounded-lg border border-[var(--sms-line)] bg-[var(--sms-card-soft)] p-4 sm:grid-cols-2 lg:grid-cols-5">
+                            <CourseSummary label="Course Code" value={studentDetails.course.courseCode} />
+                            <CourseSummary label="Course Name" value={studentDetails.course.courseName} />
+                            <CourseSummary label="Department" value={studentDetails.course.department} />
+                            <CourseSummary label="Teacher" value={studentDetails.course.teacher} />
+                            <CourseSummary label="Enrolled" value={studentDetails.totalStudents} />
+                        </div>
+                        <div className="max-w-full overflow-x-auto rounded-md border border-[var(--sms-line)]"><Table><TableHeader><TableRow><TableHead>Student Code</TableHead><TableHead>Student Name</TableHead><TableHead>Department</TableHead><TableHead>Year Level</TableHead><TableHead>Email</TableHead><TableHead>Enrollment Date</TableHead><TableHead>Status</TableHead></TableRow></TableHeader><TableBody>{studentDetails.students.length ? studentDetails.students.map((student) => <TableRow key={student.id}><TableCell className="min-w-28 font-mono text-xs">{student.studentCode}</TableCell><TableCell className="min-w-40 whitespace-normal break-words font-medium">{student.studentName}</TableCell><TableCell className="min-w-44 whitespace-normal break-words">{student.department}</TableCell><TableCell>{student.yearLevel || "—"}</TableCell><TableCell className="min-w-48 whitespace-normal break-all">{student.email || "—"}</TableCell><TableCell className="min-w-32">{student.enrollmentDate || "—"}</TableCell><TableCell><Badge variant="outline" className={student.enrollmentStatus === "Active" ? "sms-badge-active" : "sms-badge-inactive"}>{student.enrollmentStatus}</Badge></TableCell></TableRow>) : <TableRow><TableCell colSpan={7} className="py-10 text-center text-[var(--sms-muted)]">No students enrolled in this course.</TableCell></TableRow>}</TableBody></Table></div>
+                    </div>}
+                </DialogContent>
+            </Dialog>
         </>
     );
+}
+
+function CourseSummary({ label, value }) {
+    return <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-[var(--sms-muted)]">{label}</p><p className="mt-1 whitespace-normal break-words font-medium text-[var(--sms-ink)]">{value || "—"}</p></div>;
 }
 
 export default ManageCourses;
